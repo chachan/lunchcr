@@ -1,10 +1,11 @@
 import csv
 
 from lunchable import LunchMoney, TransactionInsertObject
+from slugify import slugify
 
 
 def insert_transactions(lunch_money, asset):
-    with open("sample.csv", encoding="cp1252") as csvfile:
+    with open("usd-bac.csv", encoding="cp1252") as csvfile:
         fieldnames = [
             "Transaction date",
             "Transaction reference",
@@ -21,35 +22,51 @@ def insert_transactions(lunch_money, asset):
         f = lambda x: float(x.strip())
         for each in raw_transactions:
             try:
-                if not each["Transaction balance"]:
+                balance = each["Transaction balance"]
+                if not balance:
                     continue
                 day, month, year = s(each["Transaction date"]).split("/")
                 debit = f(each["Transaction debit"])
                 credit = f(each["Transaction credit"])
+                amount = debit or credit
+                notes = s(each["Description of transactions"])
+                external_id = slugify(
+                    " ".join(
+                        [
+                            s(each["Transaction reference"]),
+                            balance,
+                            notes,
+                            str(amount),
+                        ]
+                    )
+                )
                 transaction = TransactionInsertObject(
-                    amount=debit or credit,
+                    amount=amount,
                     asset_id=asset.id,
                     currency=asset.currency,
                     date=f"{year}-{month}-{day}",
-                    external_id=s(each["Transaction reference"]),
-                    notes=s(each["Description of transactions"]),
+                    external_id=external_id,
+                    notes=notes,
                     payee="",
                 )
                 result = lunch_money.insert_transactions(
                     debit_as_negative=credit > 0,
                     skip_balance_update=False,
+                    skip_duplicates=False,
                     transactions=transaction,
                 )
                 if len(result):
                     print(f"applied transaction: {result}")
                 else:
-                    print(f"could not applied transaction: {each}")
+                    print(f"could not applied transaction: {transaction}")
+                    break
             except ValueError:
-                print(f"could not applied transaction: {each}")
+                print(f"ValueError | could not applied transaction: {each}")
+                break
 
 
 def define_asset(lunch_money):
-    with open("sample.csv", encoding="cp1252") as csvfile:
+    with open("usd-bac.csv", encoding="cp1252") as csvfile:
         fieldnames = [
             "Number of customers",
             "Name",

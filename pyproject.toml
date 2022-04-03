@@ -8,6 +8,7 @@ license = "MIT License"
 [tool.poetry.dependencies]
 python = "^3.10"
 lunchable = "^0.1.9"
+python-slugify = "^6.1.1"
 
 [tool.poetry.dev-dependencies]
 black = {version = "^22.3.0", allow-prereleases = true}
