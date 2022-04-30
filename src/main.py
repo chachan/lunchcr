@@ -1,3 +1,5 @@
+"""lunchcr entrypoint"""
+
 import argparse
 import configparser
 import os
@@ -10,14 +12,26 @@ from entities.bac import BACAccount
 ENTITIES = [BACAccount]
 
 
-def main(datapath, config):
-    access_token = config["lunchmoney"].get("access_token")
-    lunch_money = LunchMoney(access_token)
+class LunchMoneyCR(LunchMoney):
+    """LunchMoney wrapper to include custom logic"""
+
+    def __init__(self, access_token):
+        super().__init__(access_token)
+        self.cached_assets = self.get_assets()
+
+
+def main(datapath, cfg):
+    """main handler"""
+    access_token = cfg["lunchmoney"].get("access_token")
+    lunch_money = LunchMoneyCR(access_token)
     files = [each for each in os.listdir(datapath) if each.endswith(".csv")]
     if not files:
-        print(f"could not find csv files in {datapath}")
+        print(f"Could not find csv files in {datapath}")
 
-    # entity = [entity.infer(file_name) for entity in ENTITIES]
+    for file_name in files:
+        entities = [entity for entity in ENTITIES if entity.infer(lunch_money, file_name)]
+        if entities:
+            print(f"Detected: {entities[0]}")
 
 
 if __name__ == "__main__":
