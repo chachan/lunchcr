@@ -29,9 +29,17 @@ def main(datapath, cfg):
         print(f"Could not find csv files in {datapath}")
 
     for file_name in files:
-        entities = [entity for entity in ENTITIES if entity.infer(lunch_money, file_name)]
-        if entities:
-            print(f"Detected: {entities[0]}")
+        print("-")
+        entities = [
+            entity for entity in ENTITIES if entity.infer(lunch_money, file_name)
+        ]
+        print(f"File: {file_name}")
+        if len(entities) == 1:
+            print(f"Detected: {entities[0].__name__}")
+            instance = entities[0](lunch_money, file_name)
+            instance.insert_transactions()
+        else:
+            print("No entity detected for this file")
 
 
 if __name__ == "__main__":
