@@ -103,8 +103,6 @@ class BACAccount(Base):
             )
             if result:
                 print(f"Applied transaction: {result}-{external_id}")
-            else:
-                print(f"Could not applied transaction: {transaction}")
             return result
         except ValueError as exception:
             print(f"ValueError | could not applied transaction: {transaction}")

@@ -30,14 +30,21 @@ def main(datapath, cfg):
 
     for file_name in files:
         print("\n-")
-        entities = [
-            entity for entity in ENTITIES if entity.infer(lunch_money, file_name)
-        ]
+        inferred_asset = None
+        inferred_entity = None
+        for e in ENTITIES:
+            inferred_asset = e.infer(lunch_money, file_name)
+            inferred_entity = e
+            if inferred_asset:
+                break
+
+        # entities = [e for e in ENTITIES if e.infer(lunch_money, file_name)]
         print(f"File: {file_name}")
-        if len(entities) == 1:
-            print(f"Detected: {entities[0].__name__}")
-            # TODO: include details: each.id, each.institution_name, each.name, each.display_name
-            instance = entities[0](lunch_money, file_name)
+        if inferred_asset:
+            fields = ["id", "institution_name", "name", "display_name"]
+            output = " | ".join([str(getattr(inferred_asset, f)) for f in fields])
+            print(f"Detected: {output}")
+            instance = inferred_entity(lunch_money, file_name)
             instance.insert_transactions()
         else:
             print("No entity detected for this file")
