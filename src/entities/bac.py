@@ -73,43 +73,48 @@ class BACAccount(Base):
         starts = "-".join(BACAccount._date(cleaned_transactions[0]))
         ends = "-".join(BACAccount._date(cleaned_transactions[-1]))
         print(f"from {starts} to {ends} (DD/MM/YYYY)")
-        if click.confirm('Do you want to continue?'):
+        if click.confirm("Do you want to continue?"):
+            applied_transactions = 0
             for transaction in cleaned_transactions:
-                self.insert_transaction(transaction)
-
-    @staticmethod
-    def clean_transaction(transaction):
-        """Parse raw row and build TransactionInsertObject"""
-        return transaction if BACAccount._balance(transaction) else None
+                result = self.insert_transaction(transaction)
+                applied_transactions += 1 if result else 0
+            print(f"Applied transactions: {applied_transactions}")
 
     def insert_transaction(self, transaction):
         """Actual single insert"""
         try:
             day, month, year = BACAccount._date(transaction)
-            transaction = TransactionInsertObject(
+            debit_as_negative = BACAccount._credit(transaction) > 0
+            external_id = BACAccount._external_id(transaction)
+            transaction_insert = TransactionInsertObject(
                 amount=BACAccount._amount(transaction),
                 asset_id=self.asset.id,
                 currency=self.asset.currency,
                 date=f"{year}-{month}-{day}",
-                external_id=BACAccount._external_id(transaction),
+                external_id=external_id,
                 notes=BACAccount._notes(transaction),
                 payee="",
             )
-            # result = self.lunch_money.insert_transactions(
-            #     debit_as_negative=BACAccount._credit(transaction) > 0,
-            #     skip_balance_update=False,
-            #     skip_duplicates=False,
-            #     transactions=transaction,
-            # )
-            # if len(result):
-            #     print(f"Applied transaction: {result}")
-            # else:
-            #     print(f"Could not applied transaction: {transaction}")
-            #     return
+            result = self.lunch_money.insert_transactions(
+                debit_as_negative=debit_as_negative,
+                skip_balance_update=False,
+                skip_duplicates=False,
+                transactions=transaction_insert,
+            )
+            if result:
+                print(f"Applied transaction: {result}-{external_id}")
+            else:
+                print(f"Could not applied transaction: {transaction}")
+            return result
         except ValueError as exception:
             print(f"ValueError | could not applied transaction: {transaction}")
             print(exception)
             return
+
+    @staticmethod
+    def clean_transaction(transaction):
+        """Parse raw row and build TransactionInsertObject"""
+        return transaction if BACAccount._balance(transaction) else None
 
     @staticmethod
     def _external_id(transaction):
