@@ -8,8 +8,9 @@ import pathlib
 from lunchable import LunchMoney
 
 from entities.bac import BACAccount
+from entities.payoneer import PayoneerAccount
 
-ENTITIES = [BACAccount]
+ENTITIES = [BACAccount, PayoneerAccount]
 
 
 class LunchMoneyCR(LunchMoney):
