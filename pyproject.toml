@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "bac-lunch"
+name = "lunchcr"
 version = "0.1.0"
 description = ""
 authors = ["Cherny D. C. Berbesí I. <cherny.berbesi@protonmail.com>"]

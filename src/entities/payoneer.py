@@ -36,10 +36,10 @@ class PayoneerAccount(Base):
         """Tells if file_name is a valid Payoneer Account CSV file"""
         instance = PayoneerAccount(lunch_money, file_name)
         instance.define_asset()
-        return instance.asset
+        return instance.assets
 
     def define_asset(self):
-        """Define asset or accounr target in lunch money"""
+        """Define assets or accounr target in lunch money"""
         rows = self.read_rows(
             PayoneerAccount.TRANSACTION_FIELD_NAMES, self.FILE_ENCODING
         )
@@ -47,14 +47,11 @@ class PayoneerAccount(Base):
             int(rows[1].get("Transaction ID"))
         except ValueError:
             return False
-        for asset in self.lunch_money.cached_assets:
-            if asset.name == "PAYONEER":
-                self.asset = asset
-                break
+        return [a for a in self.lunch_money.cached_assets if a.name == "PAYONEER"]
 
     def insert_transactions(self):
-        """Insert transactions into an already define lunch money asset"""
-        if not self.asset:
+        """Insert transactions into an already define lunch money assets"""
+        if not self.assets:
             self.define_asset()
 
         rows = self.read_rows(self.TRANSACTION_FIELD_NAMES, encoding=self.FILE_ENCODING)
@@ -79,10 +76,11 @@ class PayoneerAccount(Base):
     def insert_transaction(self, transaction):
         """Actual single insert"""
         try:
+            _asset = self.assets[0]
             transaction_insert = TransactionInsertObject(
                 amount=PayoneerAccount._amount(transaction),
-                asset_id=self.asset.id,
-                currency=self.asset.currency,
+                asset_id=_asset.id,
+                currency=_asset.currency,
                 date=PayoneerAccount._date(transaction),
                 external_id=PayoneerAccount._external_id(transaction),
                 notes=PayoneerAccount._notes(transaction),
@@ -103,7 +101,7 @@ class PayoneerAccount(Base):
         except ValueError as exception:
             print(f"ValueError | could not applied transaction: {transaction}")
             print(exception)
-            return
+            return None
 
     @staticmethod
     def clean_transaction(transaction):

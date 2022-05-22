@@ -8,7 +8,7 @@ class Base:
     def __init__(self, lunch_money, file_name):
         self.lunch_money = lunch_money
         self.file_name = file_name
-        self.asset = ""
+        self.assets = []
 
     def read_rows(self, field_names, encoding):
         """Read lines from CSV files and return a list"""
@@ -17,4 +17,4 @@ class Base:
             return list(reader)
 
     def define_asset(self):
-        """Define asset or accounr target in lunch money"""
+        """Define assets or accounr target in lunch money"""

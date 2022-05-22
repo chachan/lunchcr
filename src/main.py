@@ -7,13 +7,17 @@ import pathlib
 
 from lunchable import LunchMoney
 
-from entities.bac import BACAccount
+from entities.bac import BACAccount, BACCreditCard
 from entities.payoneer import PayoneerAccount
 
-ENTITIES = [BACAccount, PayoneerAccount]
+ENTITIES = [
+    BACAccount,
+    BACCreditCard,
+    PayoneerAccount
+]
 
 
-class LunchMoneyCR(LunchMoney):
+class LunchMoneyCR(LunchMoney): # pylint: disable=too-many-ancestors
     """LunchMoney wrapper to include custom logic"""
 
     def __init__(self, access_token):
@@ -30,25 +34,25 @@ def main(datapath, cfg):
         print(f"Could not find csv files in {datapath}")
 
     for file_name in files:
-        print("\n-")
-        inferred_asset = None
+        print("\n")
+        inferred_assets = []
         inferred_entity = None
         for e in ENTITIES:
-            inferred_asset = e.infer(lunch_money, file_name)
+            inferred_assets = e.infer(lunch_money, file_name)
             inferred_entity = e
-            if inferred_asset:
+            if inferred_assets:
                 break
 
-        # entities = [e for e in ENTITIES if e.infer(lunch_money, file_name)]
         print(f"File: {file_name}")
-        if inferred_asset:
+        print("Detected assets:")
+        for asset in inferred_assets:
             fields = ["id", "institution_name", "name", "display_name"]
-            output = " | ".join([str(getattr(inferred_asset, f)) for f in fields])
-            print(f"Detected: {output}")
-            instance = inferred_entity(lunch_money, file_name)
-            instance.insert_transactions()
-        else:
-            print("No entity detected for this file")
+            output = " | ".join([str(getattr(asset, f)) for f in fields])
+            print(f"- {output}")
+        instance = inferred_entity(lunch_money, file_name)
+        instance.insert_transactions()
+        if not inferred_assets:
+            print("- No entity detected for this file")
 
 
 if __name__ == "__main__":

@@ -1,5 +1,5 @@
 """BAC parser classes"""
-
+import datetime
 import click
 from lunchable import TransactionInsertObject
 from slugify import slugify
@@ -45,22 +45,22 @@ class BACAccount(Base):
     def infer(lunch_money, file_name):
         """Tells if file_name is a valid BAC Account CSV file"""
         instance = BACAccount(lunch_money, file_name)
-        instance.define_asset()
-        return instance.asset
+        instance.define_assets()
+        return instance.assets
 
-    def define_asset(self):
-        """Define asset or accounr target in lunch money"""
+    def define_assets(self):
+        """Define assets or accounr target in lunch money"""
         rows = self.read_rows(self.ASSET_FIELD_NAMES, self.FILE_ENCODING)
         product = rows[1]["Product"].strip()
         by_name = lambda a: a.name == product
         filtered_assets = list(filter(by_name, self.lunch_money.cached_assets))
         if len(filtered_assets) == 1:
-            self.asset = filtered_assets[0]
+            self.assets = filtered_assets[0]
 
     def insert_transactions(self):
-        """Insert transactions into an already define lunch money asset"""
-        if not self.asset:
-            self.define_asset()
+        """Insert transactions into an already define lunch money assets"""
+        if not self.assets:
+            self.define_assets()
 
         rows = self.read_rows(self.TRANSACTION_FIELD_NAMES, encoding=self.FILE_ENCODING)
 
@@ -86,10 +86,11 @@ class BACAccount(Base):
             day, month, year = BACAccount._date(transaction)
             debit_as_negative = BACAccount._credit(transaction) > 0
             external_id = BACAccount._external_id(transaction)
+            _asset = self.assets[0]
             transaction_insert = TransactionInsertObject(
                 amount=BACAccount._amount(transaction),
-                asset_id=self.asset.id,
-                currency=self.asset.currency,
+                asset_id=_asset.id,
+                currency=_asset.currency,
                 date=f"{year}-{month}-{day}",
                 external_id=external_id,
                 notes=BACAccount._notes(transaction),
@@ -107,7 +108,7 @@ class BACAccount(Base):
         except ValueError as exception:
             print(f"ValueError | could not applied transaction: {transaction}")
             print(exception)
-            return
+            return None
 
     @staticmethod
     def clean_transaction(transaction):
@@ -148,3 +149,131 @@ class BACAccount(Base):
     @staticmethod
     def _date(transaction):
         return _str(transaction["Transaction date"]).split("/")
+
+
+class BACCreditCard(Base):
+    """Parser for Credit Cards"""
+
+    ASSET_FIELD_NAMES = [
+        "Pro000000000000duct",
+        "Name",
+        "Date",
+        "Minimum payment/due date",
+        "Minimum payment/ Local Amount",
+        "Minimum Payment / Dollars Amount",
+        "Cash payment/Due date",
+        "Cash payment / Local amount",
+        "Cash payment / Dollar amount",
+    ]
+    FILE_ENCODING = "cp1252"
+    TRANSACTION_FIELD_NAMES = ["Date", "", "Local", "Dollars "]
+
+    @staticmethod
+    def infer(lunch_money, file_name):
+        """Tells if file_name is a valid BAC Account CSV file"""
+        instance = BACCreditCard(lunch_money, file_name)
+        instance.define_asset()
+        return instance.assets
+
+    def define_asset(self):
+        """Define assets or accounr target in lunch money"""
+        rows = self.read_rows(self.ASSET_FIELD_NAMES, self.FILE_ENCODING)
+        product = _str(rows[1]["Pro000000000000duct"])
+        by_name = lambda a: a.name == product
+        self.assets = list(filter(by_name, self.lunch_money.cached_assets))
+
+    def insert_transactions(self):
+        """Insert transactions into an already define lunch money assets"""
+        if not self.assets:
+            self.define_asset()
+
+        rows = self.read_rows(self.TRANSACTION_FIELD_NAMES, encoding=self.FILE_ENCODING)
+
+        cleaned_transactions = list(filter(BACCreditCard.clean_transaction, rows))
+        cleaned_transactions.sort(key=BACCreditCard._date)
+        print(f"Cleaned transactions: {len(cleaned_transactions)}")
+        starts = BACCreditCard._date(cleaned_transactions[0])
+        ends = BACCreditCard._date(cleaned_transactions[-1])
+        print(f"from {starts} to {ends}")
+        if click.confirm("Do you want to continue?"):
+            applied_transactions = 0
+            for transaction in cleaned_transactions:
+                result = self.insert_transaction(transaction)
+                applied_transactions += 1 if result else 0
+            print(f"Applied transactions: {applied_transactions}")
+
+    def insert_transaction(self, transaction):
+        """Actual single insert"""
+        try:
+            _asset = self._asset(transaction)
+            transaction_insert = TransactionInsertObject(
+                amount=BACCreditCard._amount(transaction),
+                asset_id=_asset.id,
+                currency=_asset.currency,
+                date=self._date(transaction),
+                external_id=self._external_id(transaction),
+                notes=BACCreditCard._notes(transaction),
+                payee="",
+            )
+            result = self.lunch_money.insert_transactions(
+                debit_as_negative=BACCreditCard._debit_as_negative(transaction),
+                skip_balance_update=False,
+                skip_duplicates=False,
+                transactions=transaction_insert,
+            )
+            if result:
+                print(f"Applied transaction: {result}-{self._external_id(transaction)}")
+            return result
+        except ValueError as exception:
+            print(f"ValueError | could not applied transaction: {transaction}")
+            print(exception)
+            return None
+
+    @staticmethod
+    def clean_transaction(transaction):
+        """Parse raw row and build TransactionInsertObject"""
+        try:
+            day, month, year = transaction["Date"].split("/")
+            datetime.date(int(year), int(month), int(day))
+            return transaction
+        except ValueError:
+            return None
+
+    @staticmethod
+    def _date(transaction):
+        day, month, year = transaction["Date"].split("/")
+        return f"{year}-{month}-{day}"
+
+    def _asset(self, transaction):
+        crc = _float(transaction["Local"])
+        usd = _float(transaction["Dollars "])
+        if crc:
+            return [a for a in self.assets if a.currency == "crc"][0]
+        if usd:
+            return [a for a in self.assets if a.currency == "usd"][0]
+        return None
+
+    @staticmethod
+    def _amount(transaction):
+        crc = _float(transaction["Local"])
+        usd = _float(transaction["Dollars "])
+        return abs(crc or usd)
+
+    @staticmethod
+    def _notes(transaction):
+        return _str(transaction[""])
+
+    def _external_id(self, transaction):
+        return slugify(
+            " ".join(
+                [
+                    self._date(transaction),
+                    self._notes(transaction),
+                    str(self._amount(transaction)),
+                ]
+            )
+        )
+
+    @staticmethod
+    def _debit_as_negative(transaction):
+        return (_float(transaction["Local"]) or _float(transaction["Dollars "])) < 0
