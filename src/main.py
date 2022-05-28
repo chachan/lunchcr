@@ -8,9 +8,15 @@ from lunchable import LunchMoney
 
 from entities.bac import BACAccount, BACCreditCard
 from entities.payoneer import PayoneerAccount
-from entities.scotiabank import ScotiabankCreditCard
+from entities.scotiabank import ScotiabankAccount, ScotiabankCreditCard
 
-ENTITIES = [BACAccount, BACCreditCard, PayoneerAccount, ScotiabankCreditCard]
+ENTITIES = [
+    BACAccount,
+    BACCreditCard,
+    PayoneerAccount,
+    ScotiabankCreditCard,
+    ScotiabankAccount,
+]
 
 
 class LunchMoneyCR(LunchMoney):  # pylint: disable=too-many-ancestors

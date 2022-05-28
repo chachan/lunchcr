@@ -6,7 +6,133 @@ from lunchable import TransactionInsertObject
 from slugify import slugify
 
 from entities.base import Base
-from utils import _float
+from utils import _float, _str
+
+
+class ScotiabankAccount(Base):
+    """Parser for Credit Cards"""
+
+    asset_field_names = []
+    delimiter = ";"
+    transaction_field_names = [
+        "TIPO_TRANSACCION",
+        "TIPO_MOVIMIENTO",
+        "MONEDA",
+        "NUMERO_CUENTA",
+        "REFERENCIA",
+        "FECHA",
+        "MONTO",
+        "CONCEPTO",
+    ]
+
+    @staticmethod
+    def infer(lunch_money, file_name):
+        """Tells if file_name is a valid Scotiabank account CSV file"""
+        instance = ScotiabankAccount(lunch_money, file_name)
+        instance.define_asset()
+        return instance.assets
+
+    def define_asset(self):
+        """Define assets or accounr target in lunch money"""
+        rows = self.read_rows(self.transaction_field_names)
+        _asset = rows[1]["NUMERO_CUENTA"]
+        by_name = lambda a: a.name == _asset
+        self.assets = list(filter(by_name, self.lunch_money.cached_assets))
+        try:
+            _date = rows[1]["FECHA"]
+            day, month, year = _date[:2], _date[2:4], _date[4:]
+            datetime.date(int(year), int(month), int(day))
+        except ValueError:
+            return []
+        return self.assets
+
+    def insert_transactions(self):
+        """Insert transactions into an already define lunch money assets"""
+        if not self.assets:
+            self.define_asset()
+
+        rows = self.read_rows(self.transaction_field_names)
+
+        cleaned_transactions = list(filter(ScotiabankAccount.clean_transaction, rows))
+        cleaned_transactions.sort(key=ScotiabankAccount._date)
+        print(f"Cleaned transactions: {len(cleaned_transactions)}")
+        starts = ScotiabankAccount._date(cleaned_transactions[0])
+        ends = ScotiabankAccount._date(cleaned_transactions[-1])
+        print(f"from {starts} to {ends}")
+        if click.confirm("Do you want to continue?"):
+            applied_transactions = 0
+            for transaction in cleaned_transactions:
+                result = self.insert_transaction(transaction)
+                applied_transactions += 1 if result else 0
+            print(f"Applied transactions: {applied_transactions}")
+
+    def insert_transaction(self, transaction):
+        """Actual single insert"""
+        try:
+            _asset = self.assets[0]
+            transaction_insert = TransactionInsertObject(
+                amount=ScotiabankAccount._amount(transaction),
+                asset_id=_asset.id,
+                currency=_asset.currency,
+                date=self._date(transaction),
+                external_id=self._external_id(transaction),
+                notes=ScotiabankAccount._notes(transaction),
+                payee="",
+            )
+            result = self.lunch_money.insert_transactions(
+                debit_as_negative=ScotiabankAccount._debit_as_negative(transaction),
+                skip_balance_update=False,
+                skip_duplicates=False,
+                transactions=transaction_insert,
+            )
+            if result:
+                print(f"Applied transaction: {result}-{self._external_id(transaction)}")
+            return result
+        except ValueError as exception:
+            print(f"ValueError | could not applied transaction: {transaction}")
+            print(exception)
+            return None
+
+    @staticmethod
+    def clean_transaction(transaction):
+        """Parse raw row and build TransactionInsertObject"""
+        try:
+            _date = transaction["FECHA"]
+            day, month, year = _date[:2], _date[2:4], _date[4:]
+            datetime.date(int(year), int(month), int(day))
+            return transaction
+        except ValueError:
+            return None
+
+    @staticmethod
+    def _date(transaction):
+        _date = transaction["FECHA"]
+        day, month, year = _date[:2], _date[2:4], _date[4:]
+        return f"{year}-{month}-{day}"
+
+    @staticmethod
+    def _amount(transaction):
+        return _float(transaction["MONTO"])
+
+    @staticmethod
+    def _notes(transaction):
+        return transaction["CONCEPTO"]
+
+    def _external_id(self, transaction):
+
+        return slugify(
+            " ".join(
+                [
+                    _str(transaction["REFERENCIA"]),
+                    _str(transaction["CONCEPTO"]),
+                    str(self._amount(transaction)),
+                ]
+            )
+        )
+
+    @staticmethod
+    def _debit_as_negative(transaction):
+        return transaction["TIPO_MOVIMIENTO"] == "C"
 
 
 class ScotiabankCreditCard(Base):
@@ -129,7 +255,7 @@ class ScotiabankCreditCard(Base):
         return slugify(
             " ".join(
                 [
-                    transaction["Número de Referencia"],
+                    _str(transaction["Número de Referencia"]),
                     str(self._notes(transaction)),
                     str(self._amount(transaction)),
                 ]
