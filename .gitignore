@@ -130,6 +130,7 @@ dmypy.json
 
 # visual-studio-code
 .vscode
+*.code-workspace
 
 # OS
 .DS_Store

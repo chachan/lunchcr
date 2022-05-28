@@ -1,18 +1,16 @@
 """Payoneer parser classes"""
-
 import click
 from lunchable import TransactionInsertObject
 from slugify import slugify
-from utils import _str
 
 from entities.base import Base
+from utils import _str
 
 
 class PayoneerAccount(Base):
     """Parser for Bank Accounts"""
 
-    FILE_ENCODING = "utf-8"
-    TRANSACTION_FIELD_NAMES = [
+    transaction_field_names = [
         "Transaction Date",
         "Transaction Time",
         "Time Zone",
@@ -40,12 +38,10 @@ class PayoneerAccount(Base):
 
     def define_asset(self):
         """Define assets or accounr target in lunch money"""
-        rows = self.read_rows(
-            PayoneerAccount.TRANSACTION_FIELD_NAMES, self.FILE_ENCODING
-        )
+        rows = self.read_rows(self.transaction_field_names)
         try:
             int(rows[1].get("Transaction ID"))
-        except ValueError:
+        except (ValueError, TypeError):
             return False
         return [a for a in self.lunch_money.cached_assets if a.name == "PAYONEER"]
 
@@ -54,7 +50,7 @@ class PayoneerAccount(Base):
         if not self.assets:
             self.define_asset()
 
-        rows = self.read_rows(self.TRANSACTION_FIELD_NAMES, encoding=self.FILE_ENCODING)
+        rows = self.read_rows(PayoneerAccount.transaction_field_names)
 
         raw_transactions = rows[1:]
         print(f"Raw transactions detected: {len(raw_transactions)}")

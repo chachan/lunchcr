@@ -1,5 +1,6 @@
 """BAC parser classes"""
 import datetime
+
 import click
 from lunchable import TransactionInsertObject
 from slugify import slugify
@@ -11,7 +12,7 @@ from utils import _float, _str
 class BACAccount(Base):
     """Parser for Bank Accounts"""
 
-    ASSET_FIELD_NAMES = [
+    asset_field_names = [
         "Number of customers",
         "Name",
         "Product",
@@ -30,8 +31,8 @@ class BACAccount(Base):
         "Message 5",
         "Message 6",
     ]
-    FILE_ENCODING = "cp1252"
-    TRANSACTION_FIELD_NAMES = [
+    file_encoding = "cp1252"
+    transaction_field_names = [
         "Transaction date",
         "Transaction reference",
         "Transaction codes",
@@ -50,8 +51,8 @@ class BACAccount(Base):
 
     def define_assets(self):
         """Define assets or accounr target in lunch money"""
-        rows = self.read_rows(self.ASSET_FIELD_NAMES, self.FILE_ENCODING)
-        product = rows[1]["Product"].strip()
+        rows = self.read_rows(BACAccount.asset_field_names)
+        product = _str(rows[1].get("Product", ""))
         by_name = lambda a: a.name == product
         filtered_assets = list(filter(by_name, self.lunch_money.cached_assets))
         if len(filtered_assets) == 1:
@@ -62,7 +63,7 @@ class BACAccount(Base):
         if not self.assets:
             self.define_assets()
 
-        rows = self.read_rows(self.TRANSACTION_FIELD_NAMES, encoding=self.FILE_ENCODING)
+        rows = self.read_rows(self.transaction_field_names)
 
         raw_transactions = rows[4:]
         print(f"Raw transactions detected: {len(raw_transactions)}")
@@ -154,7 +155,7 @@ class BACAccount(Base):
 class BACCreditCard(Base):
     """Parser for Credit Cards"""
 
-    ASSET_FIELD_NAMES = [
+    asset_field_names = [
         "Pro000000000000duct",
         "Name",
         "Date",
@@ -165,19 +166,19 @@ class BACCreditCard(Base):
         "Cash payment / Local amount",
         "Cash payment / Dollar amount",
     ]
-    FILE_ENCODING = "cp1252"
-    TRANSACTION_FIELD_NAMES = ["Date", "", "Local", "Dollars "]
+    file_encoding = "cp1252"
+    transaction_field_names = ["Date", "", "Local", "Dollars "]
 
     @staticmethod
     def infer(lunch_money, file_name):
-        """Tells if file_name is a valid BAC Account CSV file"""
+        """Tells if file_name is a valid BAC credit card CSV file"""
         instance = BACCreditCard(lunch_money, file_name)
         instance.define_asset()
         return instance.assets
 
     def define_asset(self):
         """Define assets or accounr target in lunch money"""
-        rows = self.read_rows(self.ASSET_FIELD_NAMES, self.FILE_ENCODING)
+        rows = self.read_rows(BACCreditCard.asset_field_names)
         product = _str(rows[1]["Pro000000000000duct"])
         by_name = lambda a: a.name == product
         self.assets = list(filter(by_name, self.lunch_money.cached_assets))
@@ -187,7 +188,7 @@ class BACCreditCard(Base):
         if not self.assets:
             self.define_asset()
 
-        rows = self.read_rows(self.TRANSACTION_FIELD_NAMES, encoding=self.FILE_ENCODING)
+        rows = self.read_rows(self.transaction_field_names)
 
         cleaned_transactions = list(filter(BACCreditCard.clean_transaction, rows))
         cleaned_transactions.sort(key=BACCreditCard._date)

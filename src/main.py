@@ -1,5 +1,4 @@
 """lunchcr entrypoint"""
-
 import argparse
 import configparser
 import os
@@ -9,15 +8,12 @@ from lunchable import LunchMoney
 
 from entities.bac import BACAccount, BACCreditCard
 from entities.payoneer import PayoneerAccount
+from entities.scotiabank import ScotiabankCreditCard
 
-ENTITIES = [
-    BACAccount,
-    BACCreditCard,
-    PayoneerAccount
-]
+ENTITIES = [BACAccount, BACCreditCard, PayoneerAccount, ScotiabankCreditCard]
 
 
-class LunchMoneyCR(LunchMoney): # pylint: disable=too-many-ancestors
+class LunchMoneyCR(LunchMoney):  # pylint: disable=too-many-ancestors
     """LunchMoney wrapper to include custom logic"""
 
     def __init__(self, access_token):
@@ -49,10 +45,11 @@ def main(datapath, cfg):
             fields = ["id", "institution_name", "name", "display_name"]
             output = " | ".join([str(getattr(asset, f)) for f in fields])
             print(f"- {output}")
-        instance = inferred_entity(lunch_money, file_name)
-        instance.insert_transactions()
         if not inferred_assets:
             print("- No entity detected for this file")
+            continue
+        instance = inferred_entity(lunch_money, file_name)
+        instance.insert_transactions()
 
 
 if __name__ == "__main__":
