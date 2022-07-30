@@ -67,9 +67,7 @@ class BACAccount(Base):
 
         raw_transactions = rows[4:]
         print(f"Raw transactions detected: {len(raw_transactions)}")
-        cleaned_transactions = list(
-            filter(BACAccount.clean_transaction, raw_transactions)
-        )
+        cleaned_transactions = list(filter(BACAccount.clean_transaction, raw_transactions))
         print(f"Cleaned transactions: {len(cleaned_transactions)}")
         starts = "-".join(BACAccount._date(cleaned_transactions[0]))
         ends = "-".join(BACAccount._date(cleaned_transactions[-1]))

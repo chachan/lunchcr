@@ -1,4 +1,5 @@
 """Scotiabank parser classes"""
+import csv
 import datetime
 
 import click
@@ -13,17 +14,7 @@ class ScotiabankAccount(Base):
     """Parser for Credit Cards"""
 
     asset_field_names = []
-    delimiter = ";"
-    transaction_field_names = [
-        "TIPO_TRANSACCION",
-        "TIPO_MOVIMIENTO",
-        "MONEDA",
-        "NUMERO_CUENTA",
-        "REFERENCIA",
-        "FECHA",
-        "MONTO",
-        "CONCEPTO",
-    ]
+    delimiter = ","
 
     @staticmethod
     def infer(lunch_money, file_name):
@@ -32,27 +23,28 @@ class ScotiabankAccount(Base):
         instance.define_asset()
         return instance.assets
 
+    def read_rows(self):
+        with open(self.file_name, encoding=self.encoding) as csv_file:
+            reader = csv.reader(csv_file, delimiter=self.delimiter)
+            return list(reader)[1:]
+
     def define_asset(self):
         """Define assets or accounr target in lunch money"""
-        rows = self.read_rows(self.transaction_field_names)
-        _asset = rows[1]["NUMERO_CUENTA"]
-        by_name = lambda a: a.name == _asset
-        self.assets = list(filter(by_name, self.lunch_money.cached_assets))
-        try:
-            _date = rows[1]["FECHA"]
-            day, month, year = _date[:2], _date[2:4], _date[4:]
-            datetime.date(int(year), int(month), int(day))
-        except ValueError:
+        rows = self.read_rows()
+        if not ScotiabankAccount.clean_transaction(rows[0]):
             return []
-        return self.assets
+        self.assets = [
+            a for a in self.lunch_money.cached_assets if a.name == "CR79012300120123397016"
+        ]  # CUENTA UNIVERSAL USD
 
     def insert_transactions(self):
         """Insert transactions into an already define lunch money assets"""
         if not self.assets:
             self.define_asset()
 
-        rows = self.read_rows(self.transaction_field_names)
+        rows = self.read_rows()
 
+        print(f"Raw transactions: {len(rows)}")
         cleaned_transactions = list(filter(ScotiabankAccount.clean_transaction, rows))
         cleaned_transactions.sort(key=ScotiabankAccount._date)
         print(f"Cleaned transactions: {len(cleaned_transactions)}")
@@ -74,7 +66,7 @@ class ScotiabankAccount(Base):
                 amount=ScotiabankAccount._amount(transaction),
                 asset_id=_asset.id,
                 currency=_asset.currency,
-                date=self._date(transaction),
+                date=ScotiabankAccount._date(transaction),
                 external_id=self._external_id(transaction),
                 notes=ScotiabankAccount._notes(transaction),
                 payee="",
@@ -95,44 +87,50 @@ class ScotiabankAccount(Base):
 
     @staticmethod
     def clean_transaction(transaction):
-        """Parse raw row and build TransactionInsertObject"""
+        """Ensure no exceptions are raised"""
         try:
-            _date = transaction["FECHA"]
-            day, month, year = _date[:2], _date[2:4], _date[4:]
-            datetime.date(int(year), int(month), int(day))
+            ScotiabankAccount._date(transaction)
+            ScotiabankAccount._notes(transaction)
+            ScotiabankAccount._amount(transaction)
+            ScotiabankAccount._balance(transaction)
+            if transaction[5] != "Débito" and transaction[5] != "Crédito":  # Crédito/Débito
+                raise TypeError
             return transaction
-        except ValueError:
+        except (TypeError, KeyError):
             return None
 
     @staticmethod
     def _date(transaction):
-        _date = transaction["FECHA"]
-        day, month, year = _date[:2], _date[2:4], _date[4:]
+        day, month, year = transaction[1].split("/")  # Fecha de Movimiento
         return f"{year}-{month}-{day}"
 
     @staticmethod
     def _amount(transaction):
-        return _float(transaction["MONTO"])
+        return _float(transaction[3].replace(",", ""))
 
     @staticmethod
     def _notes(transaction):
-        return transaction["CONCEPTO"]
+        return transaction[2]  # Descripción
 
     def _external_id(self, transaction):
-
         return slugify(
             " ".join(
                 [
-                    _str(transaction["REFERENCIA"]),
-                    _str(transaction["CONCEPTO"]),
-                    str(self._amount(transaction)),
+                    transaction[0],  # Número de Referencia
+                    ScotiabankAccount._date(transaction),
+                    ScotiabankAccount._notes(transaction),
+                    str(ScotiabankAccount._balance(transaction)),
                 ]
             )
         )
 
     @staticmethod
+    def _balance(transaction):
+        return _float(transaction[4].replace(",", ""))  # Balance?
+
+    @staticmethod
     def _debit_as_negative(transaction):
-        return transaction["TIPO_MOVIMIENTO"] == "C"
+        return transaction[5] == "Crédito"
 
 
 class ScotiabankCreditCard(Base):
@@ -159,13 +157,16 @@ class ScotiabankCreditCard(Base):
     def define_asset(self):
         """Define assets or accounr target in lunch money"""
         rows = self.read_rows(self.transaction_field_names)
-        _asset = rows[1]["Fecha de Movimiento"][-4:]
+        try:
+            _asset = rows[1]["Fecha de Movimiento"][-4:]
+        except TypeError:
+            return []
         by_name = lambda a: a.name[-4:] == _asset
         self.assets = list(filter(by_name, self.lunch_money.cached_assets))
         try:
             day, month, year = rows[2]["Fecha de Movimiento"].split("/")
             datetime.date(int(year), int(month), int(day))
-        except ValueError:
+        except (ValueError, TypeError):
             return []
         return self.assets
 
@@ -176,9 +177,7 @@ class ScotiabankCreditCard(Base):
 
         rows = self.read_rows(self.transaction_field_names)
 
-        cleaned_transactions = list(
-            filter(ScotiabankCreditCard.clean_transaction, rows)
-        )
+        cleaned_transactions = list(filter(ScotiabankCreditCard.clean_transaction, rows))
         cleaned_transactions.sort(key=ScotiabankCreditCard._date)
         print(f"Cleaned transactions: {len(cleaned_transactions)}")
         starts = ScotiabankCreditCard._date(cleaned_transactions[0])

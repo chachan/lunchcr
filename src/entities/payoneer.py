@@ -54,9 +54,7 @@ class PayoneerAccount(Base):
 
         raw_transactions = rows[1:]
         print(f"Raw transactions detected: {len(raw_transactions)}")
-        cleaned_transactions = list(
-            filter(PayoneerAccount.clean_transaction, raw_transactions)
-        )
+        cleaned_transactions = list(filter(PayoneerAccount.clean_transaction, raw_transactions))
         cleaned_transactions.reverse()
         print(f"Cleaned transactions: {len(cleaned_transactions)}")
         starts = PayoneerAccount._date(cleaned_transactions[0])
@@ -90,9 +88,7 @@ class PayoneerAccount(Base):
                 transactions=transaction_insert,
             )
             if result:
-                print(
-                    f"Applied transaction: {result}-{PayoneerAccount._external_id(transaction)}"
-                )
+                print(f"Applied transaction: {result}-{PayoneerAccount._external_id(transaction)}")
             return result
         except ValueError as exception:
             print(f"ValueError | could not applied transaction: {transaction}")
