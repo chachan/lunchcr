@@ -1,6 +1,10 @@
 """Base for Entities"""
 import csv
 
+from utils import config_logger
+
+LOGGER = config_logger("entities/base.py")
+
 
 class Base:
     """Base for Entities"""
@@ -20,7 +24,12 @@ class Base:
                 reader = csv.DictReader(csvfile, field_names, delimiter=self.delimiter)
             else:
                 reader = csv.DictReader(csvfile, field_names)
-            return list(reader)
+            try:
+                rows = list(reader)
+                return rows
+            except UnicodeDecodeError:
+                LOGGER.warning(f"could not decode file using {self.encoding}")
+                return []
 
     def define_asset(self):
         """Define assets or accounr target in lunch money"""

@@ -4,7 +4,9 @@ from lunchable import TransactionInsertObject
 from slugify import slugify
 
 from entities.base import Base
-from utils import _str
+from utils import _str, config_logger
+
+LOGGER = config_logger("entities/payoneer.py")
 
 
 class PayoneerAccount(Base):
@@ -55,19 +57,19 @@ class PayoneerAccount(Base):
         rows = self.read_rows(PayoneerAccount.transaction_field_names)
 
         raw_transactions = rows[1:]
-        print(f"Raw transactions detected: {len(raw_transactions)}")
+        LOGGER.debug(f"Raw transactions detected: {len(raw_transactions)}")
         cleaned_transactions = list(filter(PayoneerAccount.clean_transaction, raw_transactions))
         cleaned_transactions.reverse()
-        print(f"Cleaned transactions: {len(cleaned_transactions)}")
+        LOGGER.debug(f"Cleaned transactions: {len(cleaned_transactions)}")
         starts = PayoneerAccount._date(cleaned_transactions[0])
         ends = PayoneerAccount._date(cleaned_transactions[-1])
-        print(f"from {starts} to {ends}")
+        LOGGER.debug(f"from {starts} to {ends}")
         if click.confirm("Do you want to continue?"):
             applied_transactions = 0
             for transaction in cleaned_transactions:
                 result = self.insert_transaction(transaction)
                 applied_transactions += 1 if result else 0
-            print(f"Applied transactions: {applied_transactions}")
+            LOGGER.info(f"Applied transactions: {applied_transactions}")
 
     def insert_transaction(self, transaction):
         """Actual single insert"""
@@ -90,11 +92,13 @@ class PayoneerAccount(Base):
                 transactions=transaction_insert,
             )
             if result:
-                print(f"Applied transaction: {result}-{PayoneerAccount._external_id(transaction)}")
+                LOGGER.info(
+                    f"Applied transaction: {result}-{PayoneerAccount._external_id(transaction)}"
+                )
             return result
         except ValueError as exception:
-            print(f"ValueError | could not applied transaction: {transaction}")
-            print(exception)
+            LOGGER.error(f"could not applied transaction: {transaction}")
+            LOGGER.error(exception)
             return None
 
     @staticmethod

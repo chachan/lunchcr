@@ -10,6 +10,8 @@ from entities.bac import BACAccount, BACCreditCard
 from entities.payoneer import PayoneerAccount
 from entities.scotiabank import ScotiabankAccount, ScotiabankCreditCard
 
+from utils import config_logger
+
 ENTITIES = [
     BACAccount,
     BACCreditCard,
@@ -17,6 +19,8 @@ ENTITIES = [
     ScotiabankCreditCard,
     ScotiabankAccount,
 ]
+
+LOGGER = config_logger("main.py")
 
 
 class LunchMoneyCR(LunchMoney):  # pylint: disable=too-many-ancestors
@@ -37,10 +41,9 @@ def main(datapath, cfg):
         if each.endswith(".csv") or each.endswith(".txt")
     ]
     if not files:
-        print(f"Could not find csv files in {datapath}")
+        LOGGER.info(f"Could not find csv files in {datapath}")
 
     for file_name in files:
-        print("\n")
         inferred_assets = []
         inferred_entity = None
         for e in ENTITIES:
@@ -49,14 +52,13 @@ def main(datapath, cfg):
             if inferred_assets:
                 break
 
-        print(f"File: {file_name}")
-        print("Detected assets:")
+        LOGGER.info(f"File: {file_name}")
         for asset in inferred_assets:
             fields = ["id", "institution_name", "name", "display_name"]
             output = " | ".join([str(getattr(asset, f)) for f in fields])
-            print(f"- {output}")
+            LOGGER.info(f"- {output}")
         if not inferred_assets:
-            print("- No entity detected for this file")
+            LOGGER.warning("No entity detected for this file")
             continue
         instance = inferred_entity(lunch_money, file_name)
         instance.insert_transactions()

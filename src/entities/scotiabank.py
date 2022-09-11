@@ -7,7 +7,9 @@ from lunchable import TransactionInsertObject
 from slugify import slugify
 
 from entities.base import Base
-from utils import _float, _str
+from utils import _float, _str, config_logger
+
+LOGGER = config_logger("entities/scotiabank.py")
 
 
 class ScotiabankAccount(Base):
@@ -26,12 +28,17 @@ class ScotiabankAccount(Base):
     def read_rows(self):
         with open(self.file_name, encoding=self.encoding) as csv_file:
             reader = csv.reader(csv_file, delimiter=self.delimiter)
-            return list(reader)[1:]
+            try:
+                rows = list(reader)[1:]
+                return rows
+            except UnicodeDecodeError:
+                LOGGER.warning(f"could not decode file using {self.encoding}")
+                return []
 
     def define_asset(self):
         """Define assets or account target in lunch money"""
         rows = self.read_rows()
-        if not ScotiabankAccount.clean_transaction(rows[0]):
+        if not rows or not ScotiabankAccount.clean_transaction(rows[0]):
             return []
         self.assets = [
             a for a in self.lunch_money.cached_assets if a.name == "CR79012300120123397016"
@@ -44,19 +51,19 @@ class ScotiabankAccount(Base):
 
         rows = self.read_rows()
 
-        print(f"Raw transactions: {len(rows)}")
+        LOGGER.debug(f"Raw transactions: {len(rows)}")
         cleaned_transactions = list(filter(ScotiabankAccount.clean_transaction, rows))
         cleaned_transactions.sort(key=ScotiabankAccount._date)
-        print(f"Cleaned transactions: {len(cleaned_transactions)}")
+        LOGGER.debug(f"Cleaned transactions: {len(cleaned_transactions)}")
         starts = ScotiabankAccount._date(cleaned_transactions[0])
         ends = ScotiabankAccount._date(cleaned_transactions[-1])
-        print(f"from {starts} to {ends}")
+        LOGGER.debug(f"from {starts} to {ends}")
         if click.confirm("Do you want to continue?"):
             applied_transactions = 0
             for transaction in cleaned_transactions:
                 result = self.insert_transaction(transaction)
                 applied_transactions += 1 if result else 0
-            print(f"Applied transactions: {applied_transactions}")
+            LOGGER.info(f"Applied transactions: {applied_transactions}")
 
     def insert_transaction(self, transaction):
         """Actual single insert"""
@@ -78,11 +85,11 @@ class ScotiabankAccount(Base):
                 transactions=transaction_insert,
             )
             if result:
-                print(f"Applied transaction: {result}-{self._external_id(transaction)}")
+                LOGGER.info(f"Applied transaction: {result}-{self._external_id(transaction)}")
             return result
         except ValueError as exception:
-            print(f"ValueError | could not applied transaction: {transaction}")
-            print(exception)
+            LOGGER.error(f"could not applied transaction: {transaction}")
+            LOGGER.error(exception)
             return None
 
     @staticmethod
@@ -181,16 +188,16 @@ class ScotiabankCreditCard(Base):
 
         cleaned_transactions = list(filter(ScotiabankCreditCard.clean_transaction, rows))
         cleaned_transactions.sort(key=ScotiabankCreditCard._date)
-        print(f"Cleaned transactions: {len(cleaned_transactions)}")
+        LOGGER.debug(f"Cleaned transactions: {len(cleaned_transactions)}")
         starts = ScotiabankCreditCard._date(cleaned_transactions[0])
         ends = ScotiabankCreditCard._date(cleaned_transactions[-1])
-        print(f"from {starts} to {ends}")
+        LOGGER.debug(f"from {starts} to {ends}")
         if click.confirm("Do you want to continue?"):
             applied_transactions = 0
             for transaction in cleaned_transactions:
                 result = self.insert_transaction(transaction)
                 applied_transactions += 1 if result else 0
-            print(f"Applied transactions: {applied_transactions}")
+            LOGGER.info(f"Applied transactions: {applied_transactions}")
 
     def insert_transaction(self, transaction):
         """Actual single insert"""
@@ -212,11 +219,11 @@ class ScotiabankCreditCard(Base):
                 transactions=transaction_insert,
             )
             if result:
-                print(f"Applied transaction: {result}-{self._external_id(transaction)}")
+                LOGGER.info(f"Applied transaction: {result}-{self._external_id(transaction)}")
             return result
         except ValueError as exception:
-            print(f"ValueError | could not applied transaction: {transaction}")
-            print(exception)
+            LOGGER.error(f"could not applied transaction: {transaction}")
+            LOGGER.error(exception)
             return None
 
     @staticmethod

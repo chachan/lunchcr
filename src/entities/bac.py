@@ -6,7 +6,9 @@ from lunchable import TransactionInsertObject
 from slugify import slugify
 
 from entities.base import Base
-from utils import _float, _str
+from utils import _float, _str, config_logger
+
+LOGGER = config_logger("entities/bac.py")
 
 
 class BACAccount(Base):
@@ -52,6 +54,8 @@ class BACAccount(Base):
     def define_assets(self):
         """Define assets or account target in lunch money"""
         rows = self.read_rows(BACAccount.asset_field_names)
+        if not rows:
+            return []
         product = _str(rows[1].get("Product", ""))
         by_name = lambda a: a.name == product
         filtered_assets = list(filter(by_name, self.lunch_money.cached_assets))
@@ -65,18 +69,18 @@ class BACAccount(Base):
         rows = self.read_rows(self.transaction_field_names)
 
         raw_transactions = rows[4:]
-        print(f"Raw transactions detected: {len(raw_transactions)}")
+        LOGGER.debug(f"Raw transactions detected: {len(raw_transactions)}")
         cleaned_transactions = list(filter(BACAccount.clean_transaction, raw_transactions))
-        print(f"Cleaned transactions: {len(cleaned_transactions)}")
+        LOGGER.debug(f"Cleaned transactions: {len(cleaned_transactions)}")
         starts = "-".join(BACAccount._date(cleaned_transactions[0]))
         ends = "-".join(BACAccount._date(cleaned_transactions[-1]))
-        print(f"from {starts} to {ends} (DD/MM/YYYY)")
+        LOGGER.debug(f"from {starts} to {ends} (DD/MM/YYYY)")
         if click.confirm("Do you want to continue?"):
             applied_transactions = 0
             for transaction in cleaned_transactions:
                 result = self.insert_transaction(transaction)
                 applied_transactions += 1 if result else 0
-            print(f"Applied transactions: {applied_transactions}")
+            LOGGER.info(f"Applied transactions: {applied_transactions}")
 
     def insert_transaction(self, transaction):
         """Actual single insert"""
@@ -101,11 +105,11 @@ class BACAccount(Base):
                 transactions=transaction_insert,
             )
             if result:
-                print(f"Applied transaction: {result}-{external_id}")
+                LOGGER.info(f"Applied transaction: {result}-{external_id}")
             return result
         except ValueError as exception:
-            print(f"ValueError | could not applied transaction: {transaction}")
-            print(exception)
+            LOGGER.error(f"could not applied transaction: {transaction}")
+            LOGGER.error(exception)
             return None
 
     @staticmethod
@@ -176,6 +180,8 @@ class BACCreditCard(Base):
     def define_asset(self):
         """Define assets or accounr target in lunch money"""
         rows = self.read_rows(BACCreditCard.asset_field_names)
+        if not rows:
+            return []
         product = _str(rows[1]["Pro000000000000duct"])
         by_name = lambda a: a.name == product
         self.assets = list(filter(by_name, self.lunch_money.cached_assets))
@@ -189,16 +195,16 @@ class BACCreditCard(Base):
 
         cleaned_transactions = list(filter(BACCreditCard.clean_transaction, rows))
         cleaned_transactions.sort(key=BACCreditCard._date)
-        print(f"Cleaned transactions: {len(cleaned_transactions)}")
+        LOGGER.debug(f"Cleaned transactions: {len(cleaned_transactions)}")
         starts = BACCreditCard._date(cleaned_transactions[0])
         ends = BACCreditCard._date(cleaned_transactions[-1])
-        print(f"from {starts} to {ends}")
+        LOGGER.debug(f"from {starts} to {ends}")
         if click.confirm("Do you want to continue?"):
             applied_transactions = 0
             for transaction in cleaned_transactions:
                 result = self.insert_transaction(transaction)
                 applied_transactions += 1 if result else 0
-            print(f"Applied transactions: {applied_transactions}")
+            LOGGER.info(f"Applied transactions: {applied_transactions}")
 
     def insert_transaction(self, transaction):
         """Actual single insert"""
@@ -220,11 +226,11 @@ class BACCreditCard(Base):
                 transactions=transaction_insert,
             )
             if result:
-                print(f"Applied transaction: {result}-{self._external_id(transaction)}")
+                LOGGER.info(f"Applied transaction: {result}-{self._external_id(transaction)}")
             return result
         except ValueError as exception:
-            print(f"ValueError | could not applied transaction: {transaction}")
-            print(exception)
+            LOGGER.error(f"ValueError | could not applied transaction: {transaction}")
+            LOGGER.error(exception)
             return None
 
     @staticmethod
