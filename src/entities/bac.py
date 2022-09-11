@@ -33,7 +33,7 @@ class BACAccount(Base):
         "Message 5",
         "Message 6",
     ]
-    file_encoding = "cp1252"
+    encoding = "cp1252"
     transaction_field_names = [
         "Transaction date",
         "Transaction reference",
@@ -55,11 +55,11 @@ class BACAccount(Base):
         """Define assets or account target in lunch money"""
         rows = self.read_rows(BACAccount.asset_field_names)
         if not rows:
-            return []
+            self.assets = []
+            return
         product = _str(rows[1].get("Product", ""))
         by_name = lambda a: a.name == product
-        filtered_assets = list(filter(by_name, self.lunch_money.cached_assets))
-        return filtered_assets
+        self.assets = list(filter(by_name, self.lunch_money.cached_assets))
 
     def insert_transactions(self):
         """Insert transactions into an already define lunch money assets"""
@@ -167,7 +167,7 @@ class BACCreditCard(Base):
         "Cash payment / Local amount",
         "Cash payment / Dollar amount",
     ]
-    file_encoding = "cp1252"
+    encoding = "cp1252"
     transaction_field_names = ["Date", "", "Local", "Dollars "]
 
     @staticmethod
@@ -181,7 +181,8 @@ class BACCreditCard(Base):
         """Define assets or accounr target in lunch money"""
         rows = self.read_rows(BACCreditCard.asset_field_names)
         if not rows:
-            return []
+            self.assets = []
+            return
         product = _str(rows[1]["Pro000000000000duct"])
         by_name = lambda a: a.name == product
         self.assets = list(filter(by_name, self.lunch_money.cached_assets))

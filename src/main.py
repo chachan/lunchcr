@@ -58,7 +58,7 @@ def main(datapath, cfg):
         for asset in inferred_assets:
             fields = ["id", "institution_name", "name", "display_name"]
             output = " | ".join([str(getattr(asset, f)) for f in fields])
-            LOGGER.info(f"- {output}")
+            LOGGER.info(f"Entity Detected: {output}")
         if not inferred_assets:
             LOGGER.warning("No entity detected for this file")
             continue

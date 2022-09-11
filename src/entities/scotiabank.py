@@ -32,14 +32,15 @@ class ScotiabankAccount(Base):
                 rows = list(reader)[1:]
                 return rows
             except UnicodeDecodeError:
-                LOGGER.debug(f"could not decode file using {self.encoding}")
+                LOGGER.debug(f"{self.__class__.__name__} - could not decode file using {self.encoding}")
                 return []
 
     def define_asset(self):
         """Define assets or account target in lunch money"""
         rows = self.read_rows()
         if not rows or not ScotiabankAccount.clean_transaction(rows[0]):
-            return []
+            self.assets = []
+            return
         self.assets = [
             a for a in self.lunch_money.cached_assets if a.name == "CR79012300120123397016"
         ]  # CUENTA UNIVERSAL USD
@@ -165,18 +166,21 @@ class ScotiabankCreditCard(Base):
         """Define assets or accounr target in lunch money"""
         rows = self.read_rows(self.transaction_field_names)
         if not rows:
-            return []
+            self.assets = []
+            return
         try:
             _asset = rows[1]["Fecha de Movimiento"][-4:]
         except TypeError:
-            return []
+            self.assets = []
+            return
         by_name = lambda a: a.name[-4:] == _asset
         self.assets = list(filter(by_name, self.lunch_money.cached_assets))
         try:
             day, month, year = rows[2]["Fecha de Movimiento"].split("/")
             datetime.date(int(year), int(month), int(day))
         except (ValueError, TypeError):
-            return []
+            self.assets = []
+            return
         return self.assets
 
     def insert_transactions(self):
