@@ -44,15 +44,17 @@ def main(datapath, cfg):
         LOGGER.info(f"Could not find csv files in {datapath}")
 
     for file_name in files:
+        LOGGER.info(f"File: {file_name}")
+
         inferred_assets = []
         inferred_entity = None
+
         for e in ENTITIES:
             inferred_assets = e.infer(lunch_money, file_name)
             inferred_entity = e
             if inferred_assets:
                 break
 
-        LOGGER.info(f"File: {file_name}")
         for asset in inferred_assets:
             fields = ["id", "institution_name", "name", "display_name"]
             output = " | ".join([str(getattr(asset, f)) for f in fields])

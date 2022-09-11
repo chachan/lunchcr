@@ -32,7 +32,7 @@ class ScotiabankAccount(Base):
                 rows = list(reader)[1:]
                 return rows
             except UnicodeDecodeError:
-                LOGGER.warning(f"could not decode file using {self.encoding}")
+                LOGGER.debug(f"could not decode file using {self.encoding}")
                 return []
 
     def define_asset(self):
