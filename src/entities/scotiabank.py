@@ -29,7 +29,7 @@ class ScotiabankAccount(Base):
             return list(reader)[1:]
 
     def define_asset(self):
-        """Define assets or accounr target in lunch money"""
+        """Define assets or account target in lunch money"""
         rows = self.read_rows()
         if not ScotiabankAccount.clean_transaction(rows[0]):
             return []
@@ -157,6 +157,8 @@ class ScotiabankCreditCard(Base):
     def define_asset(self):
         """Define assets or accounr target in lunch money"""
         rows = self.read_rows(self.transaction_field_names)
+        if not rows:
+            return []
         try:
             _asset = rows[1]["Fecha de Movimiento"][-4:]
         except TypeError:

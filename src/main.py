@@ -31,7 +31,11 @@ def main(datapath, cfg):
     """main handler"""
     access_token = cfg["lunchmoney"].get("access_token")
     lunch_money = LunchMoneyCR(access_token)
-    files = [each for each in os.listdir(datapath) if each.endswith(".csv")]
+    files = [
+        os.path.join(datapath, each)
+        for each in os.listdir(datapath)
+        if each.endswith(".csv") or each.endswith(".txt")
+    ]
     if not files:
         print(f"Could not find csv files in {datapath}")
 

@@ -39,10 +39,12 @@ class PayoneerAccount(Base):
     def define_asset(self):
         """Define assets or accounr target in lunch money"""
         rows = self.read_rows(self.transaction_field_names)
+        if not rows:
+            return []
         try:
             int(rows[1].get("Transaction ID"))
         except (ValueError, TypeError):
-            return False
+            return []
         return [a for a in self.lunch_money.cached_assets if a.name == "PAYONEER"]
 
     def insert_transactions(self):

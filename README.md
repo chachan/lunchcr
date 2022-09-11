@@ -18,6 +18,8 @@ Import Costa Rican bank transactions to lunchmoney
 
 ## How to generate CSV files for Payoneer Accounts (not CR related but still needed it)
 
+
+
 ## How to generate CSV files for Scotiabank Accounts
 
 1. Login to Stotiabank
@@ -33,7 +35,7 @@ Import Costa Rican bank transactions to lunchmoney
 1. Login to Stotiabank
 2. Got to "Consultas" > "Movimientos"
 3. In "Cuenta" dropdown, choose the one you want to generate
-4. In "Fecha", choose the date range yoo want to generate
+4. In "Fecha", choose the date range you want to generate
 5. Click on "Aceptar"
 6. Click on "Excel"
 7. Open XLS file and export it into CSV file

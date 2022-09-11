@@ -50,13 +50,12 @@ class BACAccount(Base):
         return instance.assets
 
     def define_assets(self):
-        """Define assets or accounr target in lunch money"""
+        """Define assets or account target in lunch money"""
         rows = self.read_rows(BACAccount.asset_field_names)
         product = _str(rows[1].get("Product", ""))
         by_name = lambda a: a.name == product
         filtered_assets = list(filter(by_name, self.lunch_money.cached_assets))
-        if len(filtered_assets) == 1:
-            self.assets = filtered_assets[0]
+        return filtered_assets
 
     def insert_transactions(self):
         """Insert transactions into an already define lunch money assets"""
