@@ -1,5 +1,4 @@
 """Scotiabank parser classes"""
-import csv
 import datetime
 
 import click
@@ -15,8 +14,17 @@ LOGGER = config_logger("entities/scotiabank.py")
 class ScotiabankAccount(Base):
     """Parser for Credit Cards"""
 
-    asset_field_names = []
-    delimiter = ","
+    transaction_field_names = [
+        "TIPO_TRANSACCION",
+        "TIPO_MOVIMIENTO",
+        "MONEDA",
+        "NUMERO_CUENTA",
+        "REFERENCIA",
+        "FECHA",
+        "MONTO",
+        "CONCEPTO",
+    ]
+    delimiter = ";"
 
     @staticmethod
     def infer(lunch_money, file_name):
@@ -25,32 +33,22 @@ class ScotiabankAccount(Base):
         instance.define_asset()
         return instance.assets
 
-    def read_rows(self):
-        with open(self.file_name, encoding=self.encoding) as csv_file:
-            reader = csv.reader(csv_file, delimiter=self.delimiter)
-            try:
-                rows = list(reader)[1:]
-                return rows
-            except UnicodeDecodeError:
-                LOGGER.debug(f"{self.__class__.__name__} - could not decode file using {self.encoding}")
-                return []
-
     def define_asset(self):
         """Define assets or account target in lunch money"""
-        rows = self.read_rows()
-        if not rows or not ScotiabankAccount.clean_transaction(rows[0]):
+        rows = self.read_rows(self.transaction_field_names)
+        if not rows or not ScotiabankAccount.clean_transaction(rows[1]):
             self.assets = []
             return
         self.assets = [
-            a for a in self.lunch_money.cached_assets if a.name == "CR79012300120123397016"
-        ]  # CUENTA UNIVERSAL USD
+            a for a in self.lunch_money.cached_assets if a.name == rows[1].get("NUMERO_CUENTA")
+        ]
 
     def insert_transactions(self):
         """Insert transactions into an already define lunch money assets"""
         if not self.assets:
             self.define_asset()
 
-        rows = self.read_rows()
+        rows = self.read_rows(self.transaction_field_names)
 
         LOGGER.debug(f"Raw transactions: {len(rows)}")
         cleaned_transactions = list(filter(ScotiabankAccount.clean_transaction, rows))
@@ -97,48 +95,44 @@ class ScotiabankAccount(Base):
     def clean_transaction(transaction):
         """Ensure no exceptions are raised"""
         try:
-            ScotiabankAccount._date(transaction)
-            ScotiabankAccount._notes(transaction)
-            ScotiabankAccount._amount(transaction)
-            ScotiabankAccount._balance(transaction)
-            if transaction[5] != "Débito" and transaction[5] != "Crédito":  # Crédito/Débito
-                raise TypeError
+            ScotiabankAccount._external_id(transaction)
             return transaction
-        except (TypeError, KeyError):
+        except (ValueError, TypeError):
             return None
 
     @staticmethod
-    def _date(transaction):
-        day, month, year = transaction[1].split("/")  # Fecha de Movimiento
-        return f"{year}-{month}-{day}"
+    def _reference(transaction):
+        return transaction.get("REFERENCIA")
 
     @staticmethod
-    def _amount(transaction):
-        return _float(transaction[3].replace(",", ""))
+    def _date(transaction):
+        dt = datetime.datetime.strptime(transaction.get("FECHA"), "%d%m%Y")
+        return datetime.datetime.strftime(dt, "%Y-%m-%d")
 
     @staticmethod
     def _notes(transaction):
-        return transaction[2]  # Descripción
-
-    def _external_id(self, transaction):
-        return slugify(
-            " ".join(
-                [
-                    transaction[0],  # Número de Referencia
-                    ScotiabankAccount._date(transaction),
-                    ScotiabankAccount._notes(transaction),
-                    str(ScotiabankAccount._balance(transaction)),
-                ]
-            )
-        )
+        return transaction.get("CONCEPTO")
 
     @staticmethod
-    def _balance(transaction):
-        return _float(transaction[4].replace(",", ""))  # Balance?
+    def _amount(transaction):
+        return _float(transaction.get("MONTO")) / 100
 
     @staticmethod
     def _debit_as_negative(transaction):
-        return transaction[5] == "Crédito"
+        return transaction.get("TIPO_MOVIMIENTO") == "C"
+
+    @staticmethod
+    def _external_id(transaction):
+        return slugify(
+            " ".join(
+                [
+                    ScotiabankAccount._reference(transaction),
+                    ScotiabankAccount._date(transaction),
+                    ScotiabankAccount._notes(transaction),
+                    str(ScotiabankAccount._amount(transaction)),
+                ]
+            )
+        )
 
 
 class ScotiabankCreditCard(Base):
