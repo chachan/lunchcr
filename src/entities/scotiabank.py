@@ -139,7 +139,7 @@ class ScotiabankCreditCard(Base):
     """Parser for Credit Cards"""
 
     asset_field_names = []
-    delimiter = ";"
+    delimiter = ","
     transaction_field_names = [
         "Número de Referencia",
         "Fecha de Movimiento",
@@ -163,19 +163,18 @@ class ScotiabankCreditCard(Base):
             self.assets = []
             return
         try:
-            _asset = rows[1]["Fecha de Movimiento"][-4:]
+            ScotiabankCreditCard._date(rows[2])
+        except (ValueError, TypeError):
+            self.assets = []
+            return
+
+        try:
+            _asset = rows[1]["Fecha de Movimiento"][-4:] # row[1] is nonesense
         except TypeError:
             self.assets = []
             return
         by_name = lambda a: a.name[-4:] == _asset
         self.assets = list(filter(by_name, self.lunch_money.cached_assets))
-        try:
-            day, month, year = rows[2]["Fecha de Movimiento"].split("/")
-            datetime.date(int(year), int(month), int(day))
-        except (ValueError, TypeError):
-            self.assets = []
-            return
-        return self.assets
 
     def insert_transactions(self):
         """Insert transactions into an already define lunch money assets"""
