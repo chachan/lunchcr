@@ -162,7 +162,7 @@ class ScotiabankCreditCard(Base):
             return
         try:
             ScotiabankCreditCard._date(rows[2])
-        except (ValueError, TypeError):
+        except (ValueError, TypeError, AttributeError):
             self.assets = []
             return
 
