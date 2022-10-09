@@ -8,9 +8,7 @@ _float = lambda x: float(x.strip())
 
 def config_logger(
     name="",
-    level=logging.DEBUG
-    if os.environ.get("DEBUG", "False").capitalize() == "True"
-    else logging.INFO,
+    level=logging.DEBUG if os.environ.get("DEBUG", "False").capitalize() == "True" else logging.INFO,
     _format="%(asctime)s - %(levelname)s - %(filename)s:%(lineno)d - %(message)s",
     handler=logging.StreamHandler,
     propagate=True,

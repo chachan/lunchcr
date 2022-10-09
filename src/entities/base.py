@@ -28,9 +28,7 @@ class Base:
                 rows = list(reader)
                 return rows
             except UnicodeDecodeError:
-                LOGGER.debug(
-                    f"{self.__class__.__name__} - could not decode file using {self.encoding}"
-                )
+                LOGGER.debug(f"{self.__class__.__name__} - could not decode file using {self.encoding}")
                 return []
 
     def define_asset(self):

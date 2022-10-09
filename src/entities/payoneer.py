@@ -78,7 +78,7 @@ class PayoneerAccount(Base):
         try:
             _asset = self.assets[0]
             transaction_insert = TransactionInsertObject(
-                amount=PayoneerAccount._amount(transaction),
+                amount=PayoneerAccount._amount(transaction).replace(",", ""),
                 asset_id=_asset.id,
                 currency=_asset.currency,
                 date=PayoneerAccount._date(transaction),
@@ -94,9 +94,7 @@ class PayoneerAccount(Base):
                 transactions=transaction_insert,
             )
             if result:
-                LOGGER.info(
-                    f"Applied transaction: {result}-{PayoneerAccount._external_id(transaction)}"
-                )
+                LOGGER.info(f"Applied transaction: {result}-{PayoneerAccount._external_id(transaction)}")
             return result
         except ValueError as exception:
             LOGGER.error(f"could not applied transaction: {transaction}")

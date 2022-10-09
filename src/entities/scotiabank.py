@@ -39,9 +39,7 @@ class ScotiabankAccount(Base):
         if not rows or not ScotiabankAccount.clean_transaction(rows[1]):
             self.assets = []
             return
-        self.assets = [
-            a for a in self.lunch_money.cached_assets if a.name == rows[1].get("NUMERO_CUENTA")
-        ]
+        self.assets = [a for a in self.lunch_money.cached_assets if a.name == rows[1].get("NUMERO_CUENTA")]
 
     def insert_transactions(self):
         """Insert transactions into an already define lunch money assets"""
@@ -169,7 +167,7 @@ class ScotiabankCreditCard(Base):
             return
 
         try:
-            _asset = rows[1]["Fecha de Movimiento"][-4:] # row[1] is nonesense
+            _asset = rows[1]["Fecha de Movimiento"][-4:]  # row[1] is nonesense
         except TypeError:
             self.assets = []
             return
