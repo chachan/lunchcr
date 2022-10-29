@@ -76,10 +76,11 @@ class ScotiabankAccount(Base):
                 payee="",
             )
             result = self.lunch_money.insert_transactions(
+                transactions=transaction_insert,
+                apply_rules=True,
+                skip_duplicates=False,
                 debit_as_negative=ScotiabankAccount._debit_as_negative(transaction),
                 skip_balance_update=False,
-                skip_duplicates=False,
-                transactions=transaction_insert,
             )
             if result:
                 LOGGER.info(f"Applied transaction: {result}-{self._external_id(transaction)}")
@@ -208,10 +209,11 @@ class ScotiabankCreditCard(Base):
                 payee="",
             )
             result = self.lunch_money.insert_transactions(
+                transactions=transaction_insert,
+                apply_rules=True,
+                skip_duplicates=False,
                 debit_as_negative=ScotiabankCreditCard._debit_as_negative(transaction),
                 skip_balance_update=False,
-                skip_duplicates=False,
-                transactions=transaction_insert,
             )
             if result:
                 LOGGER.info(f"Applied transaction: {result}-{self._external_id(transaction)}")

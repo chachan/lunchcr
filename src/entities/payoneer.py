@@ -88,10 +88,11 @@ class PayoneerAccount(Base):
             )
             _debit_as_negative = PayoneerAccount._debit_as_negative(transaction)
             result = self.lunch_money.insert_transactions(
+                transactions=transaction_insert,
+                apply_rules=True,
+                skip_duplicates=False,
                 debit_as_negative=_debit_as_negative,
                 skip_balance_update=False,
-                skip_duplicates=False,
-                transactions=transaction_insert,
             )
             if result:
                 LOGGER.info(f"Applied transaction: {result}-{PayoneerAccount._external_id(transaction)}")
