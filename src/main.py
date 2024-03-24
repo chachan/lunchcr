@@ -15,7 +15,6 @@ from utils import config_logger
 ENTITIES = [
     BACAccount,
     BACCreditCard,
-    PayoneerAccount,
     ScotiabankCreditCard,
     ScotiabankAccount,
 ]
@@ -42,6 +41,7 @@ def main(datapath, cfg):
         LOGGER.info(f"Could not find csv files in {datapath}")
 
     for file_name in files:
+        LOGGER.info(" ")
         LOGGER.info(f"File: {file_name}")
 
         inferred_assets = []

@@ -3,6 +3,7 @@ import datetime
 
 import click
 from lunchable import TransactionInsertObject
+from lunchable.exceptions import LunchMoneyHTTPError
 from slugify import slugify
 
 from entities.base import Base
@@ -85,9 +86,9 @@ class ScotiabankAccount(Base):
             if result:
                 LOGGER.info(f"Applied transaction: {result}-{self._external_id(transaction)}")
             return result
-        except ValueError as exception:
-            LOGGER.error(f"could not applied transaction: {transaction}")
-            LOGGER.error(exception)
+        except (ValueError, LunchMoneyHTTPError) as exception:
+            LOGGER.warning(f"Could not applied transaction: {transaction}")
+            LOGGER.debug(exception)
             return None
 
     @staticmethod
@@ -163,7 +164,7 @@ class ScotiabankCreditCard(Base):
             return
         try:
             ScotiabankCreditCard._date(rows[2])
-        except (ValueError, TypeError, AttributeError):
+        except (ValueError, TypeError, AttributeError, IndexError):
             self.assets = []
             return
 
@@ -218,9 +219,9 @@ class ScotiabankCreditCard(Base):
             if result:
                 LOGGER.info(f"Applied transaction: {result}-{self._external_id(transaction)}")
             return result
-        except ValueError as exception:
-            LOGGER.error(f"could not applied transaction: {transaction}")
-            LOGGER.error(exception)
+        except (ValueError, LunchMoneyHTTPError) as exception:
+            LOGGER.warning(f"Could not applied transaction: {transaction}")
+            LOGGER.debug(exception)
             return None
 
     @staticmethod
@@ -249,7 +250,7 @@ class ScotiabankCreditCard(Base):
 
     @staticmethod
     def _amount(transaction):
-        return _float(transaction["Monto"])
+        return abs(_float(transaction["Monto"]))
 
     @staticmethod
     def _notes(transaction):

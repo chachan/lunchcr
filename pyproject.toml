@@ -7,7 +7,7 @@ license = "MIT License"
 
 [tool.poetry.dependencies]
 python = "^3.10"
-lunchable = "^0.1.9"
+lunchable = "*"
 python-slugify = "^6.1.1"
 click = "^8.1.3"
 

@@ -3,6 +3,7 @@ import datetime
 
 import click
 from lunchable import TransactionInsertObject
+from lunchable.exceptions import LunchMoneyHTTPError
 from slugify import slugify
 
 from entities.base import Base
@@ -108,9 +109,9 @@ class BACAccount(Base):
             if result:
                 LOGGER.info(f"Applied transaction: {result}-{external_id}")
             return result
-        except ValueError as exception:
-            LOGGER.error(f"could not applied transaction: {transaction}")
-            LOGGER.error(exception)
+        except (ValueError, LunchMoneyHTTPError) as exception:
+            LOGGER.warning(f"Could not applied transaction: {transaction}")
+            LOGGER.debug(exception)
             return None
 
     @staticmethod
@@ -231,9 +232,9 @@ class BACCreditCard(Base):
             if result:
                 LOGGER.info(f"Applied transaction: {result}-{self._external_id(transaction)}")
             return result
-        except ValueError as exception:
-            LOGGER.error(f"ValueError | could not applied transaction: {transaction}")
-            LOGGER.error(exception)
+        except (ValueError, LunchMoneyHTTPError) as exception:
+            LOGGER.warning(f"Could not applied transaction: {transaction}")
+            LOGGER.debug(exception)
             return None
 
     @staticmethod
