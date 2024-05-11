@@ -1,4 +1,5 @@
 """lunchcr entrypoint"""
+
 import argparse
 import configparser
 import os
@@ -7,7 +8,6 @@ import pathlib
 from lunchable import LunchMoney
 
 from entities.bac import BACAccount, BACCreditCard
-from entities.payoneer import PayoneerAccount
 from entities.scotiabank import ScotiabankAccount, ScotiabankCreditCard
 
 from utils import config_logger
@@ -38,11 +38,11 @@ def main(datapath, cfg):
         os.path.join(datapath, each) for each in os.listdir(datapath) if each.endswith(".csv") or each.endswith(".txt")
     ]
     if not files:
-        LOGGER.info(f"Could not find csv files in {datapath}")
+        LOGGER.info("Could not find csv files in %s", datapath)
 
     for file_name in files:
-        LOGGER.info(" ")
-        LOGGER.info(f"File: {file_name}")
+        LOGGER.info("\n")
+        LOGGER.info("File: %s", file_name)
 
         inferred_assets = []
         inferred_entity = None
@@ -56,7 +56,7 @@ def main(datapath, cfg):
         for asset in inferred_assets:
             fields = ["id", "institution_name", "name", "display_name"]
             output = " | ".join([str(getattr(asset, f)) for f in fields])
-            LOGGER.info(f"Entity Detected: {output}")
+            LOGGER.info("Entity Detected: %s", output)
         if not inferred_assets:
             LOGGER.warning("No entity detected for this file")
             continue

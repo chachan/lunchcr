@@ -2,8 +2,13 @@
 import logging
 import os
 
-_str = lambda x: x.strip() if x else ""
-_float = lambda x: float(x.strip())
+logging.getLogger("lunchable.models._core").disabled = True
+
+def _str(x):
+    return x.strip() if x else ""
+
+def _float(x):
+    return float(x.strip())
 
 
 def config_logger(

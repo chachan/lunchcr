@@ -1,4 +1,5 @@
 """Scotiabank parser classes"""
+
 import datetime
 
 import click
@@ -49,19 +50,19 @@ class ScotiabankAccount(Base):
 
         rows = self.read_rows(self.transaction_field_names)
 
-        LOGGER.debug(f"Raw transactions: {len(rows)}")
+        LOGGER.debug("Raw transactions: %d", len(rows))
         cleaned_transactions = list(filter(ScotiabankAccount.clean_transaction, rows))
         cleaned_transactions.sort(key=ScotiabankAccount._date)
-        LOGGER.debug(f"Cleaned transactions: {len(cleaned_transactions)}")
+        LOGGER.debug("Cleaned transactions: %d", len(cleaned_transactions))
         starts = ScotiabankAccount._date(cleaned_transactions[0])
         ends = ScotiabankAccount._date(cleaned_transactions[-1])
-        LOGGER.debug(f"from {starts} to {ends}")
+        LOGGER.debug("from %s to %s", starts, ends)
         if click.confirm("Do you want to continue?"):
             applied_transactions = 0
             for transaction in cleaned_transactions:
                 result = self.insert_transaction(transaction)
                 applied_transactions += 1 if result else 0
-            LOGGER.info(f"Applied transactions: {applied_transactions}")
+            LOGGER.info("Applied transactions: %d", applied_transactions)
 
     def insert_transaction(self, transaction):
         """Actual single insert"""
@@ -84,10 +85,10 @@ class ScotiabankAccount(Base):
                 skip_balance_update=False,
             )
             if result:
-                LOGGER.info(f"Applied transaction: {result}-{self._external_id(transaction)}")
+                LOGGER.info("Applied transaction: %s-%s", result, self._external_id(transaction))
             return result
         except (ValueError, LunchMoneyHTTPError) as exception:
-            LOGGER.warning(f"Could not applied transaction: {transaction}")
+            LOGGER.debug("Could not applied transaction: %s", transaction.get("CONCEPTO"))
             LOGGER.debug(exception)
             return None
 
@@ -173,8 +174,7 @@ class ScotiabankCreditCard(Base):
         except TypeError:
             self.assets = []
             return
-        by_name = lambda a: a.name[-4:] == _asset
-        self.assets = list(filter(by_name, self.lunch_money.cached_assets))
+        self.assets = list(filter(lambda a: a.name[-4:] == _asset, self.lunch_money.cached_assets))
 
     def insert_transactions(self):
         """Insert transactions into an already define lunch money assets"""
@@ -185,16 +185,16 @@ class ScotiabankCreditCard(Base):
 
         cleaned_transactions = list(filter(ScotiabankCreditCard.clean_transaction, rows))
         cleaned_transactions.sort(key=ScotiabankCreditCard._date)
-        LOGGER.debug(f"Cleaned transactions: {len(cleaned_transactions)}")
+        LOGGER.debug("Cleaned transactions: %d", len(cleaned_transactions))
         starts = ScotiabankCreditCard._date(cleaned_transactions[0])
         ends = ScotiabankCreditCard._date(cleaned_transactions[-1])
-        LOGGER.debug(f"from {starts} to {ends}")
+        LOGGER.debug("from %d to %d", starts, ends)
         if click.confirm("Do you want to continue?"):
             applied_transactions = 0
             for transaction in cleaned_transactions:
                 result = self.insert_transaction(transaction)
                 applied_transactions += 1 if result else 0
-            LOGGER.info(f"Applied transactions: {applied_transactions}")
+            LOGGER.info("Applied transactions: %d", applied_transactions)
 
     def insert_transaction(self, transaction):
         """Actual single insert"""
@@ -217,10 +217,10 @@ class ScotiabankCreditCard(Base):
                 skip_balance_update=False,
             )
             if result:
-                LOGGER.info(f"Applied transaction: {result}-{self._external_id(transaction)}")
+                LOGGER.info("Applied transaction: %s-%s", result, self._external_id(transaction))
             return result
         except (ValueError, LunchMoneyHTTPError) as exception:
-            LOGGER.warning(f"Could not applied transaction: {transaction}")
+            LOGGER.debug("Could not applied transaction: %s", transaction.get("Descripción"))
             LOGGER.debug(exception)
             return None
 
