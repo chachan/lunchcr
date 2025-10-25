@@ -3,10 +3,9 @@ name = "lunchcr"
 version = "0.1.0"
 description = "lunchmoney for CR banking."
 readme = "README.md"
-requires-python = ">=3.14"
+requires-python = ">=3.13"
 dependencies = [
     "lunchable>=1.4.3",
-    "slugify>=0.0.1",
 ]
 
 [dependency-groups]

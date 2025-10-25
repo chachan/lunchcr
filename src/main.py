@@ -22,15 +22,17 @@ def main(datapath: pathlib.Path, cfg: configparser.ConfigParser) -> None:
     lunch_money = LunchMoneyCR(access_token)
     logger = config_logger("main.py")
 
-    for file_name in pathlib.Path(datapath).glob("*.csv,*.txt"):
+    for file_path in pathlib.Path(datapath).iterdir():
+        if not file_path.match("*.csv") and not file_path.match("*.txt"):
+            continue
         logger.info("\n")
-        logger.info("File: %s", file_name)
+        logger.info("File: %s", file_path)
 
         inferred_assets = []
         inferred_entity = None
 
         for e in ENTITIES:
-            inferred_assets = e.infer(lunch_money, file_name)
+            inferred_assets = e.infer(lunch_money, file_path)
             inferred_entity = e
             if inferred_assets:
                 break
@@ -46,7 +48,7 @@ def main(datapath: pathlib.Path, cfg: configparser.ConfigParser) -> None:
         if not inferred_assets:
             logger.warning("No entity detected for this file")
             continue
-        instance = inferred_entity(lunch_money, file_name)
+        instance = inferred_entity(lunch_money, file_path)
         instance.insert_transactions()
 
 

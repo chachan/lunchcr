@@ -1,23 +1,16 @@
 """Scotiabank parser classes."""
 
 import datetime
-from typing import TYPE_CHECKING, ClassVar
+from pathlib import Path
+from typing import ClassVar
 
 import click
 from lunchable import TransactionInsertObject
 from lunchable.exceptions import LunchMoneyHTTPError
-from slugify import slugify
+from lunchable.models import AssetsObject
 
 from entities.base import Base
-from utils import LunchMoneyCR, _float, _str, config_logger
-
-if TYPE_CHECKING:
-    from pathlib import Path
-
-    from lunchable.models import AssetsObject
-
-
-LOGGER = config_logger("entities/scotiabank.py")
+from utils import LunchMoneyCR, _float, _str, config_logger, slugify
 
 
 class ScotiabankAccount(Base):
@@ -54,27 +47,29 @@ class ScotiabankAccount(Base):
 
     def insert_transactions(self) -> None:
         """Insert transactions into an already define lunch money assets."""
+        logger = config_logger("entities/scotiabank.py")
         if not self.assets:
             self.define_asset()
 
         rows = self.read_rows(self.transaction_field_names)
 
-        LOGGER.debug("Raw transactions: %d", len(rows))
+        logger.debug("Raw transactions: %d", len(rows))
         cleaned_transactions = list(filter(ScotiabankAccount.clean_transaction, rows))
         cleaned_transactions.sort(key=ScotiabankAccount._date)
-        LOGGER.debug("Cleaned transactions: %d", len(cleaned_transactions))
+        logger.debug("Cleaned transactions: %d", len(cleaned_transactions))
         starts = ScotiabankAccount._date(cleaned_transactions[0])
         ends = ScotiabankAccount._date(cleaned_transactions[-1])
-        LOGGER.debug("from %s to %s", starts, ends)
+        logger.debug("from %s to %s", starts, ends)
         if click.confirm("Do you want to continue?"):
             applied_transactions = 0
             for transaction in cleaned_transactions:
                 result = self.insert_transaction(transaction)
                 applied_transactions += 1 if result else 0
-            LOGGER.info("Applied transactions: %d", applied_transactions)
+            logger.info("Applied transactions: %d", applied_transactions)
 
     def insert_transaction(self, transaction: dict) -> list[int]:
         """Actual single insert."""
+        logger = config_logger("entities/scotiabank.py")
         try:
             _asset = self.assets[0]
             transaction_insert = TransactionInsertObject(
@@ -94,10 +89,10 @@ class ScotiabankAccount(Base):
                 skip_balance_update=False,
             )
             if result:
-                LOGGER.info("Applied transaction: %s-%s", result, self._external_id(transaction))
+                logger.info("Applied transaction: %s-%s", result, self._external_id(transaction))
         except (ValueError, LunchMoneyHTTPError) as exception:
-            LOGGER.debug("Could not applied transaction: %s", transaction.get("CONCEPTO"))
-            LOGGER.debug(exception)
+            logger.debug("Could not applied transaction: %s", transaction.get("CONCEPTO"))
+            logger.debug(exception)
             return []
         return result
 
@@ -117,7 +112,7 @@ class ScotiabankAccount(Base):
     @staticmethod
     def _date(transaction: dict) -> datetime.date:
         dt = datetime.datetime.strptime(transaction["FECHA"], "%d%m%Y").replace(tzinfo=datetime.UTC)
-        return dt.date.isoformat()
+        return dt.date()
 
     @staticmethod
     def _notes(transaction: dict) -> str:
@@ -187,6 +182,7 @@ class ScotiabankCreditCard(Base):
 
     def insert_transactions(self) -> None:
         """Insert transactions into an already define lunch money assets."""
+        logger = config_logger("entities/scotiabank.py")
         if not self.assets:
             self.define_asset()
 
@@ -194,19 +190,20 @@ class ScotiabankCreditCard(Base):
 
         cleaned_transactions = list(filter(ScotiabankCreditCard.clean_transaction, rows))
         cleaned_transactions.sort(key=ScotiabankCreditCard._date)
-        LOGGER.debug("Cleaned transactions: %d", len(cleaned_transactions))
+        logger.debug("Cleaned transactions: %d", len(cleaned_transactions))
         starts = ScotiabankCreditCard._date(cleaned_transactions[0])
         ends = ScotiabankCreditCard._date(cleaned_transactions[-1])
-        LOGGER.debug("from %d to %d", starts, ends)
+        logger.debug("from %s to %s", starts, ends)
         if click.confirm("Do you want to continue?"):
             applied_transactions = 0
             for transaction in cleaned_transactions:
                 result = self.insert_transaction(transaction)
                 applied_transactions += 1 if result else 0
-            LOGGER.info("Applied transactions: %d", applied_transactions)
+            logger.info("Applied transactions: %d", applied_transactions)
 
     def insert_transaction(self, transaction: dict) -> list[int]:
         """Actual single insert."""
+        logger = config_logger("entities/scotiabank.py")
         try:
             _asset = self._asset(transaction)
             if not _asset:
@@ -228,10 +225,10 @@ class ScotiabankCreditCard(Base):
                 skip_balance_update=False,
             )
             if result:
-                LOGGER.info("Applied transaction: %s-%s", result, self._external_id(transaction))
+                logger.info("Applied transaction: %s-%s", result, self._external_id(transaction))
         except (ValueError, LunchMoneyHTTPError) as exception:
-            LOGGER.debug("Could not applied transaction: %s", transaction.get("Descripción"))
-            LOGGER.debug(exception)
+            logger.debug("Could not applied transaction: %s", transaction.get("Descripción"))
+            logger.debug(exception)
             return []
         return result
 
@@ -248,15 +245,17 @@ class ScotiabankCreditCard(Base):
     @staticmethod
     def _date(transaction: dict) -> datetime.date:
         day, month, year = transaction["Fecha de Movimiento"].split("/")
-        return datetime.date(year, month, day)
+        return datetime.date(int(year), int(month), int(day))
 
     def _asset(self, transaction: dict) -> AssetsObject | None:
-        crc = transaction["Moneda"].lower() == "crc"
-        usd = transaction["Moneda"].lower() == "usd"
-        if crc:
-            return next(a for a in self.assets if a.currency == "crc")
-        if usd:
-            return next(a for a in self.assets if a.currency == "usd")
+        if transaction["Moneda"].lower() == "crc":
+            crc_assets = [a for a in self.assets if a.currency == "crc"]
+            if crc_assets:
+                return crc_assets[0]
+        if transaction["Moneda"].lower() == "usd":
+            usd_assets = [a for a in self.assets if a.currency == "usd"]
+            if usd_assets:
+                return usd_assets[0]
         return None
 
     @staticmethod

@@ -1,20 +1,16 @@
 """BAC parser classes."""
 
 import datetime
-from typing import TYPE_CHECKING, ClassVar
+from pathlib import Path
+from typing import ClassVar
 
 import click
 from lunchable import TransactionInsertObject
 from lunchable.exceptions import LunchMoneyHTTPError
-from slugify import slugify
+from lunchable.models import AssetsObject
 
 from entities.base import Base
-from utils import LunchMoneyCR, _float, _str, config_logger
-
-if TYPE_CHECKING:
-    from pathlib import Path
-
-    from lunchable.models import AssetsObject
+from utils import LunchMoneyCR, _float, _str, config_logger, slugify
 
 
 class BACAccount(Base):
@@ -103,7 +99,7 @@ class BACAccount(Base):
                 amount=BACAccount._amount(transaction),
                 asset_id=_asset.id,
                 currency=_asset.currency,
-                date=datetime.date(year, month, day),
+                date=datetime.date(int(year), int(month), int(day)),
                 external_id=external_id,
                 notes=BACAccount._notes(transaction),
                 payee="",
@@ -263,7 +259,7 @@ class BACCreditCard(Base):
     @staticmethod
     def _date(transaction: dict) -> datetime.date:
         day, month, year = transaction["Date"].split("/")
-        return datetime.date(year, month, day)
+        return datetime.date(int(year), int(month), int(day))
 
     def _asset(self, transaction: dict) -> AssetsObject | None:
         crc = _float(transaction["Local"])

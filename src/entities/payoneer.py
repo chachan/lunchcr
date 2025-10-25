@@ -1,20 +1,15 @@
 """Payoneer parser classes."""
+
 import datetime
-from typing import TYPE_CHECKING, ClassVar
+from pathlib import Path
+from typing import ClassVar
 
 import click
 from lunchable import TransactionInsertObject
-from slugify import slugify
+from lunchable.models import AssetsObject
 
 from entities.base import Base
-from utils import LunchMoneyCR, _float, _str, config_logger
-
-if TYPE_CHECKING:
-    from pathlib import Path
-
-    from lunchable.models import AssetsObject
-
-LOGGER = config_logger("entities/payoneer.py")
+from utils import LunchMoneyCR, _float, _str, config_logger, slugify
 
 
 class PayoneerAccount(Base):
@@ -61,28 +56,30 @@ class PayoneerAccount(Base):
 
     def insert_transactions(self) -> None:
         """Insert transactions into an already define lunch money assets."""
+        logger = config_logger("entities/payoneer.py")
         if not self.assets:
             self.define_asset()
 
         rows = self.read_rows(PayoneerAccount.transaction_field_names)
 
         raw_transactions = rows[1:]
-        LOGGER.debug("Raw transactions detected: %d", len(raw_transactions))
+        logger.debug("Raw transactions detected: %d", len(raw_transactions))
         cleaned_transactions = list(filter(PayoneerAccount.clean_transaction, raw_transactions))
         cleaned_transactions.reverse()
-        LOGGER.debug("Cleaned transactions: %d", len(cleaned_transactions))
+        logger.debug("Cleaned transactions: %d", len(cleaned_transactions))
         starts = PayoneerAccount._date(cleaned_transactions[0])
         ends = PayoneerAccount._date(cleaned_transactions[-1])
-        LOGGER.debug("from %d to %d", starts, ends)
+        logger.debug("from %d to %d", starts, ends)
         if click.confirm("Do you want to continue?"):
             applied_transactions = 0
             for transaction in cleaned_transactions:
                 result = self.insert_transaction(transaction)
                 applied_transactions += 1 if result else 0
-            LOGGER.info("Applied transactions: %s", applied_transactions)
+            logger.info("Applied transactions: %s", applied_transactions)
 
     def insert_transaction(self, transaction: dict) -> list[int]:
         """Actual single insert."""
+        logger = config_logger("entities/payoneer.py")
         try:
             _asset = self.assets[0]
             transaction_insert = TransactionInsertObject(
@@ -103,9 +100,9 @@ class PayoneerAccount(Base):
                 skip_balance_update=False,
             )
             if result:
-                LOGGER.info("Applied transaction: %s-%s", result, PayoneerAccount._external_id(transaction))
+                logger.info("Applied transaction: %s-%s", result, PayoneerAccount._external_id(transaction))
         except ValueError:
-            LOGGER.exception("could not applied transaction: %s", transaction)
+            logger.exception("could not applied transaction: %s", transaction)
             return []
         return result
 
