@@ -1,6 +1,7 @@
-"""Scotiabank parser classes"""
+"""Scotiabank parser classes."""
 
 import datetime
+from typing import TYPE_CHECKING, ClassVar
 
 import click
 from lunchable import TransactionInsertObject
@@ -8,15 +9,21 @@ from lunchable.exceptions import LunchMoneyHTTPError
 from slugify import slugify
 
 from entities.base import Base
-from utils import _float, _str, config_logger
+from utils import LunchMoneyCR, _float, _str, config_logger
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    from lunchable.models import AssetsObject
+
 
 LOGGER = config_logger("entities/scotiabank.py")
 
 
 class ScotiabankAccount(Base):
-    """Parser for Credit Cards"""
+    """Parser for Credit Cards."""
 
-    transaction_field_names = [
+    transaction_field_names: ClassVar = [
         "TIPO_TRANSACCION",
         "TIPO_MOVIMIENTO",
         "MONEDA",
@@ -29,22 +36,24 @@ class ScotiabankAccount(Base):
     delimiter = ";"
 
     @staticmethod
-    def infer(lunch_money, file_name):
-        """Tells if file_name is a valid Scotiabank account CSV file"""
+    def infer(lunch_money: LunchMoneyCR, file_name: Path) -> list[AssetsObject]:
+        """Tells if file_name is a valid Scotiabank account CSV file."""
         instance = ScotiabankAccount(lunch_money, file_name)
         instance.define_asset()
         return instance.assets
 
-    def define_asset(self):
-        """Define assets or account target in lunch money"""
+    def define_asset(self) -> None:
+        """Define assets or account target in lunch money."""
         rows = self.read_rows(self.transaction_field_names)
         if not rows or not ScotiabankAccount.clean_transaction(rows[1]):
             self.assets = []
             return
-        self.assets = [a for a in self.lunch_money.cached_assets if a.name == rows[1].get("NUMERO_CUENTA")]
+        self.assets: list[AssetsObject] = [
+            a for a in self.lunch_money.cached_assets if a.name == rows[1].get("NUMERO_CUENTA")
+        ]
 
-    def insert_transactions(self):
-        """Insert transactions into an already define lunch money assets"""
+    def insert_transactions(self) -> None:
+        """Insert transactions into an already define lunch money assets."""
         if not self.assets:
             self.define_asset()
 
@@ -64,8 +73,8 @@ class ScotiabankAccount(Base):
                 applied_transactions += 1 if result else 0
             LOGGER.info("Applied transactions: %d", applied_transactions)
 
-    def insert_transaction(self, transaction):
-        """Actual single insert"""
+    def insert_transaction(self, transaction: dict) -> list[int]:
+        """Actual single insert."""
         try:
             _asset = self.assets[0]
             transaction_insert = TransactionInsertObject(
@@ -86,62 +95,62 @@ class ScotiabankAccount(Base):
             )
             if result:
                 LOGGER.info("Applied transaction: %s-%s", result, self._external_id(transaction))
-            return result
         except (ValueError, LunchMoneyHTTPError) as exception:
             LOGGER.debug("Could not applied transaction: %s", transaction.get("CONCEPTO"))
             LOGGER.debug(exception)
-            return None
+            return []
+        return result
 
     @staticmethod
-    def clean_transaction(transaction):
-        """Ensure no exceptions are raised"""
+    def clean_transaction(transaction: dict) -> dict:
+        """Ensure no exceptions are raised."""
         try:
             ScotiabankAccount._external_id(transaction)
-            return transaction
         except (ValueError, TypeError):
-            return None
+            return {}
+        return transaction
 
     @staticmethod
-    def _reference(transaction):
-        return transaction.get("REFERENCIA")
+    def _reference(transaction: dict) -> str:
+        return transaction["REFERENCIA"]
 
     @staticmethod
-    def _date(transaction):
-        dt = datetime.datetime.strptime(transaction.get("FECHA"), "%d%m%Y")
-        return datetime.datetime.strftime(dt, "%Y-%m-%d")
+    def _date(transaction: dict) -> datetime.date:
+        dt = datetime.datetime.strptime(transaction["FECHA"], "%d%m%Y").replace(tzinfo=datetime.UTC)
+        return dt.date.isoformat()
 
     @staticmethod
-    def _notes(transaction):
-        return transaction.get("CONCEPTO")
+    def _notes(transaction: dict) -> str:
+        return transaction["CONCEPTO"]
 
     @staticmethod
-    def _amount(transaction):
-        return _float(transaction.get("MONTO")) / 100
+    def _amount(transaction: dict) -> float:
+        return _float(transaction["MONTO"]) / 100
 
     @staticmethod
-    def _debit_as_negative(transaction):
-        return transaction.get("TIPO_MOVIMIENTO") == "C"
+    def _debit_as_negative(transaction: dict) -> bool:
+        return transaction["TIPO_MOVIMIENTO"] == "C"
 
     @staticmethod
-    def _external_id(transaction):
+    def _external_id(transaction: dict) -> str:
         return slugify(
             " ".join(
                 [
                     ScotiabankAccount._reference(transaction),
-                    ScotiabankAccount._date(transaction),
+                    ScotiabankAccount._date(transaction).isoformat(),
                     ScotiabankAccount._notes(transaction),
                     str(ScotiabankAccount._amount(transaction)),
-                ]
-            )
+                ],
+            ),
         )
 
 
 class ScotiabankCreditCard(Base):
-    """Parser for Credit Cards"""
+    """Parse for credit cards."""
 
-    asset_field_names = []
+    asset_field_names: ClassVar = []
     delimiter = ","
-    transaction_field_names = [
+    transaction_field_names: ClassVar = [
         "Número de Referencia",
         "Fecha de Movimiento",
         "Descripción",
@@ -151,14 +160,14 @@ class ScotiabankCreditCard(Base):
     ]
 
     @staticmethod
-    def infer(lunch_money, file_name):
-        """Tells if file_name is a valid Scotiabank credit card CSV file"""
+    def infer(lunch_money: LunchMoneyCR, file_name: Path) -> list[AssetsObject]:
+        """Tell if file_name is a valid Scotiabank credit card CSV file."""
         instance = ScotiabankCreditCard(lunch_money, file_name)
         instance.define_asset()
         return instance.assets
 
-    def define_asset(self):
-        """Define assets or accounr target in lunch money"""
+    def define_asset(self) -> None:
+        """Define assets or accounr target in lunch money."""
         rows = self.read_rows(self.transaction_field_names)
         if not rows:
             self.assets = []
@@ -176,8 +185,8 @@ class ScotiabankCreditCard(Base):
             return
         self.assets = list(filter(lambda a: a.name[-4:] == _asset, self.lunch_money.cached_assets))
 
-    def insert_transactions(self):
-        """Insert transactions into an already define lunch money assets"""
+    def insert_transactions(self) -> None:
+        """Insert transactions into an already define lunch money assets."""
         if not self.assets:
             self.define_asset()
 
@@ -196,10 +205,12 @@ class ScotiabankCreditCard(Base):
                 applied_transactions += 1 if result else 0
             LOGGER.info("Applied transactions: %d", applied_transactions)
 
-    def insert_transaction(self, transaction):
-        """Actual single insert"""
+    def insert_transaction(self, transaction: dict) -> list[int]:
+        """Actual single insert."""
         try:
             _asset = self._asset(transaction)
+            if not _asset:
+                return []
             transaction_insert = TransactionInsertObject(
                 amount=ScotiabankCreditCard._amount(transaction),
                 asset_id=_asset.id,
@@ -218,56 +229,55 @@ class ScotiabankCreditCard(Base):
             )
             if result:
                 LOGGER.info("Applied transaction: %s-%s", result, self._external_id(transaction))
-            return result
         except (ValueError, LunchMoneyHTTPError) as exception:
             LOGGER.debug("Could not applied transaction: %s", transaction.get("Descripción"))
             LOGGER.debug(exception)
-            return None
+            return []
+        return result
 
     @staticmethod
-    def clean_transaction(transaction):
-        """Parse raw row and build TransactionInsertObject"""
+    def clean_transaction(transaction: dict) -> dict:
+        """Parse raw row and build TransactionInsertObject."""
         try:
             day, month, year = transaction["Fecha de Movimiento"].split("/")
             datetime.date(int(year), int(month), int(day))
-            return transaction
         except ValueError:
-            return None
+            return {}
+        return transaction
 
     @staticmethod
-    def _date(transaction):
+    def _date(transaction: dict) -> datetime.date:
         day, month, year = transaction["Fecha de Movimiento"].split("/")
-        return f"{year}-{month}-{day}"
+        return datetime.date(year, month, day)
 
-    def _asset(self, transaction):
+    def _asset(self, transaction: dict) -> AssetsObject | None:
         crc = transaction["Moneda"].lower() == "crc"
         usd = transaction["Moneda"].lower() == "usd"
         if crc:
-            return [a for a in self.assets if a.currency == "crc"][0]
+            return next(a for a in self.assets if a.currency == "crc")
         if usd:
-            return [a for a in self.assets if a.currency == "usd"][0]
+            return next(a for a in self.assets if a.currency == "usd")
         return None
 
     @staticmethod
-    def _amount(transaction):
+    def _amount(transaction: dict) -> float:
         return abs(_float(transaction["Monto"]))
 
     @staticmethod
-    def _notes(transaction):
+    def _notes(transaction: dict) -> str:
         return transaction["Descripción"]
 
-    def _external_id(self, transaction):
-
+    def _external_id(self, transaction: dict) -> str:
         return slugify(
             " ".join(
                 [
                     _str(transaction["Número de Referencia"]),
                     str(self._notes(transaction)),
                     str(self._amount(transaction)),
-                ]
-            )
+                ],
+            ),
         )
 
     @staticmethod
-    def _debit_as_negative(transaction):
+    def _debit_as_negative(transaction: dict) -> bool:
         return transaction["Tipo"] == "CREDITO"

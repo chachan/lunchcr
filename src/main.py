@@ -1,16 +1,12 @@
-"""lunchcr entrypoint"""
+"""lunchcr entrypoint."""
 
 import argparse
 import configparser
-import os
 import pathlib
-
-from lunchable import LunchMoney
 
 from entities.bac import BACAccount, BACCreditCard
 from entities.scotiabank import ScotiabankAccount, ScotiabankCreditCard
-
-from utils import config_logger
+from utils import LunchMoneyCR, config_logger
 
 ENTITIES = [
     BACAccount,
@@ -19,30 +15,16 @@ ENTITIES = [
     ScotiabankAccount,
 ]
 
-LOGGER = config_logger("main.py")
 
-
-class LunchMoneyCR(LunchMoney):  # pylint: disable=too-many-ancestors
-    """LunchMoney wrapper to include custom logic"""
-
-    def __init__(self, access_token):
-        super().__init__(access_token)
-        self.cached_assets = self.get_assets()
-
-
-def main(datapath, cfg):
-    """main handler"""
-    access_token = cfg["lunchmoney"].get("access_token")
+def main(datapath: pathlib.Path, cfg: configparser.ConfigParser) -> None:
+    """Entrypoint."""
+    access_token = cfg["lunchmoney"].get("access_token", "")
     lunch_money = LunchMoneyCR(access_token)
-    files = [
-        os.path.join(datapath, each) for each in os.listdir(datapath) if each.endswith(".csv") or each.endswith(".txt")
-    ]
-    if not files:
-        LOGGER.info("Could not find csv files in %s", datapath)
+    logger = config_logger("main.py")
 
-    for file_name in files:
-        LOGGER.info("\n")
-        LOGGER.info("File: %s", file_name)
+    for file_name in pathlib.Path(datapath).glob("*.csv,*.txt"):
+        logger.info("\n")
+        logger.info("File: %s", file_name)
 
         inferred_assets = []
         inferred_entity = None
@@ -53,12 +35,16 @@ def main(datapath, cfg):
             if inferred_assets:
                 break
 
+        if not inferred_entity:
+            logger.error("Entity not infered.")
+            return
+
         for asset in inferred_assets:
             fields = ["id", "institution_name", "name", "display_name"]
             output = " | ".join([str(getattr(asset, f)) for f in fields])
-            LOGGER.info("Entity Detected: %s", output)
+            logger.info("Entity Detected: %s", output)
         if not inferred_assets:
-            LOGGER.warning("No entity detected for this file")
+            logger.warning("No entity detected for this file")
             continue
         instance = inferred_entity(lunch_money, file_name)
         instance.insert_transactions()
