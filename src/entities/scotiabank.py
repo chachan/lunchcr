@@ -174,11 +174,15 @@ class ScotiabankCreditCard(Base):
             return
 
         try:
-            _asset = rows[1]["Fecha de Movimiento"][-4:]  # row[1] is nonesense
+            self.assets: list[AssetsObject] = []
+            for row in rows:
+                if row["Número de Referencia"] == "Tarjeta Número:":
+                    self.assets.extend(
+                        a for a in self.lunch_money.cached_assets if row["Fecha de Movimiento"][-4:] in a.name
+                    )
         except TypeError:
             self.assets = []
             return
-        self.assets = list(filter(lambda a: a.name[-4:] == _asset, self.lunch_money.cached_assets))
 
     def insert_transactions(self) -> None:
         """Insert transactions into an already define lunch money assets."""
@@ -186,9 +190,10 @@ class ScotiabankCreditCard(Base):
         if not self.assets:
             self.define_asset()
 
-        rows = self.read_rows(self.transaction_field_names)
+        if not getattr(self, "rows", []):
+            self.rows = self.read_rows(self.transaction_field_names)
 
-        cleaned_transactions = list(filter(ScotiabankCreditCard.clean_transaction, rows))
+        cleaned_transactions = list(filter(ScotiabankCreditCard.clean_transaction, self.rows))
         cleaned_transactions.sort(key=ScotiabankCreditCard._date)
         logger.debug("Cleaned transactions: %d", len(cleaned_transactions))
         starts = ScotiabankCreditCard._date(cleaned_transactions[0])
@@ -248,14 +253,26 @@ class ScotiabankCreditCard(Base):
         return datetime.date(int(year), int(month), int(day))
 
     def _asset(self, transaction: dict) -> AssetsObject | None:
-        if transaction["Moneda"].lower() == "crc":
-            crc_assets = [a for a in self.assets if a.currency == "crc"]
-            if crc_assets:
-                return crc_assets[0]
-        if transaction["Moneda"].lower() == "usd":
-            usd_assets = [a for a in self.assets if a.currency == "usd"]
-            if usd_assets:
-                return usd_assets[0]
+        """Locate asset by looping backwards in row list from transaction location."""
+        # locate reference position in rows list.
+        position = -1
+        for i, row in enumerate(self.rows):
+            if row["Número de Referencia"] == transaction["Número de Referencia"]:
+                position = i
+                break
+
+        # locate credit card number by looping backwards in rows list from above position.
+        card_number = ""
+        for row in self.rows[position:0:-1]:
+            if row["Número de Referencia"] == "Tarjeta Número:":
+                card_number = row["Fecha de Movimiento"][-4:]
+                break
+
+        # local credit card number in cached assets list
+        for asset in self.assets:
+            if card_number in asset.name:
+                return asset
+
         return None
 
     @staticmethod
