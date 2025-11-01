@@ -270,7 +270,7 @@ class ScotiabankCreditCard(Base):
 
         # local credit card number in cached assets list
         for asset in self.assets:
-            if card_number in asset.name:
+            if card_number in asset.name and transaction["Moneda"].lower() == asset.currency:
                 return asset
 
         return None

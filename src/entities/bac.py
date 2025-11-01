@@ -206,7 +206,7 @@ class BACCreditCard(Base):
         logger.debug("Cleaned transactions: %d", len(cleaned_transactions))
         starts = BACCreditCard._date(cleaned_transactions[0])
         ends = BACCreditCard._date(cleaned_transactions[-1])
-        logger.debug("from %d to %d", starts, ends)
+        logger.debug("from %s to %s", starts, ends)
         if click.confirm("Do you want to continue?"):
             applied_transactions = 0
             for transaction in cleaned_transactions:
