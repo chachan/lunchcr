@@ -174,12 +174,13 @@ class ScotiabankCreditCard(Base):
             return
 
         try:
-            self.assets: list[AssetsObject] = []
+            _assets: dict[int, AssetsObject] = {}
             for row in rows:
                 if row["Número de Referencia"] == "Tarjeta Número:":
-                    self.assets.extend(
-                        a for a in self.lunch_money.cached_assets if row["Fecha de Movimiento"][-4:] in a.name
-                    )
+                    for a in self.lunch_money.cached_assets:
+                        if row["Fecha de Movimiento"][-4:] in a.name:
+                            _assets[a.id] = a
+            self.assets = list(_assets.values())
         except TypeError:
             self.assets = []
             return

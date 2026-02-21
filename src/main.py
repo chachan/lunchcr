@@ -25,9 +25,7 @@ def main(datapath: pathlib.Path, cfg: configparser.ConfigParser) -> None:
     for file_path in pathlib.Path(datapath).iterdir():
         if not file_path.match("*.csv") and not file_path.match("*.txt"):
             continue
-        logger.info("\n")
-        logger.info("File: %s", file_path)
-
+        logger.info("\nFile: %s", file_path)
         inferred_assets = []
         inferred_entity = None
 

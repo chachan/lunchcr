@@ -28,7 +28,7 @@ def config_logger(name: str = "") -> logging.Logger:
         return logging.getLogger(name)
 
     level: int = logging.DEBUG if os.environ.get("DEBUG", "False").capitalize() == "True" else logging.INFO
-    _format: str = "%(asctime)s - %(levelname)s - %(filename)s:%(lineno)d - %(message)s"
+    _format: str = "%(asctime)s - %(name)s.%(levelname)s - %(filename)s:%(lineno)d - %(message)s"
     handler = logging.StreamHandler
 
     _handler = handler()
