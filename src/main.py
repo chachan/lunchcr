@@ -5,12 +5,14 @@ import configparser
 import pathlib
 
 from entities.bac import BACAccount, BACCreditCard
+from entities.coopealianza import CoopealianzaAccount
 from entities.scotiabank import ScotiabankAccount, ScotiabankCreditCard
 from utils import LunchMoneyCR, config_logger
 
 ENTITIES = [
     BACAccount,
     BACCreditCard,
+    CoopealianzaAccount,
     ScotiabankCreditCard,
     ScotiabankAccount,
 ]

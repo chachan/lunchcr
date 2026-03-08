@@ -14,7 +14,7 @@ from utils import LunchMoneyCR, _float, _str, config_logger, slugify
 
 
 class ScotiabankAccount(Base):
-    """Parser for Credit Cards."""
+    """Parser for accounts."""
 
     transaction_field_names: ClassVar = [
         "TIPO_TRANSACCION",
